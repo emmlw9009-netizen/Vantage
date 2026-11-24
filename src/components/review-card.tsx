@@ -8,7 +8,7 @@ import { useApp } from "@/store/app";
 import { scoreLabel, FlagTone } from "@/lib/analysis";
 import { LESSON_MAP } from "@/lib/course";
 import { cn, timeAgo, usd } from "@/lib/format";
-import { ScoreRing, Pill, Delta } from "./ui";
+import { ScoreGauge, Pill, Delta } from "./ui";
 
 const TONE: Record<FlagTone, { icon: typeof CheckCircle2; cls: string; label: string }> = {
   good: { icon: CheckCircle2, cls: "bg-good-bg text-up", label: "Good" },
@@ -54,10 +54,10 @@ export function ReviewCard({ trade, compact = false }: { trade: Trade; compact?:
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center gap-4 border-b border-line p-4 sm:p-5">
-        <ScoreRing score={trade.score} />
+        <ScoreGauge score={trade.score} size={76} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted">Coach review</span>
+            <span className="text-sm font-medium text-ink-2">Coach review</span>
             <Pill>{scoreLabel(trade.score)}</Pill>
             {trade.realizedPnl != null && <Delta value={trade.realizedPnl} size="xs" />}
           </div>
@@ -76,40 +76,40 @@ export function ReviewCard({ trade, compact = false }: { trade: Trade; compact?:
           </div>
         )}
         {r && (
-          <div className="rounded-2xl bg-panel-2 p-4">
-            <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-coach">
-              <Sparkles className="size-3.5" /> {r.source === "ai" ? "Nova · AI coach" : "Nova · rules engine"}
+          <div className="border-l-[3px] border-coach pl-4">
+            <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-coach">
+              <Sparkles className="size-3.5" /> {r.source === "ai" ? "Nova, AI coach" : "Nova, rules engine"}
             </div>
-            <div className="font-semibold">{r.headline}</div>
-            <p className="mt-1 text-sm text-ink-2">{r.summary}</p>
+            <div className="font-display text-lg font-semibold leading-snug">{r.headline}</div>
+            <p className="mt-1.5 font-serif text-[17px] leading-relaxed text-ink">{r.summary}</p>
             {!compact && (r.didWell.length > 0 || r.improve.length > 0) && (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 {r.didWell.length > 0 && (
                   <div>
-                    <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Did well</div>
-                    <ul className="space-y-1 text-sm">
+                    <h4 className="mb-1.5 text-sm font-semibold">Did well</h4>
+                    <ul className="space-y-1.5 text-sm">
                       {r.didWell.map((x, i) => (
-                        <li key={i} className="flex gap-2"><CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-up" />{x}</li>
+                        <li key={i} className="flex gap-2"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-up" aria-hidden />{x}</li>
                       ))}
                     </ul>
                   </div>
                 )}
                 {r.improve.length > 0 && (
                   <div>
-                    <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Improve</div>
-                    <ul className="space-y-1 text-sm">
+                    <h4 className="mb-1.5 text-sm font-semibold">Improve</h4>
+                    <ul className="space-y-1.5 text-sm">
                       {r.improve.map((x, i) => (
-                        <li key={i} className="flex gap-2"><AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warn" />{x}</li>
+                        <li key={i} className="flex gap-2"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />{x}</li>
                       ))}
                     </ul>
                   </div>
                 )}
               </div>
             )}
-            <div className="mt-3 rounded-xl border border-line bg-panel px-3 py-2 text-sm">
+            <p className="mt-4 text-sm">
               <span className="font-semibold">Next step: </span>
               {r.nextStep}
-            </div>
+            </p>
           </div>
         )}
         {!compact && (
@@ -120,11 +120,11 @@ export function ReviewCard({ trade, compact = false }: { trade: Trade; compact?:
           </div>
         )}
         <div className="flex flex-wrap gap-2 pt-1">
-          <Link href={`/coach?trade=${trade.id}`} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line px-3.5 text-sm font-medium hover:bg-panel-2">
+          <Link href={`/coach?trade=${trade.id}`} className="inline-flex h-10 items-center gap-1.5 rounded-full border border-line px-3.5 text-sm font-medium hover:bg-panel-2">
             <MessageCircle className="size-4" /> Ask Nova about this
           </Link>
-          <button onClick={share} disabled={shared} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line px-3.5 text-sm font-medium hover:bg-panel-2 disabled:opacity-60">
-            <Share2 className="size-4" /> {shared ? "Shared to community" : "Share"}
+          <button onClick={share} disabled={shared} className="inline-flex h-10 items-center gap-1.5 rounded-full border border-line px-3.5 text-sm font-medium hover:bg-panel-2 disabled:opacity-60">
+            <Share2 className="size-4" /> {shared ? "Shared to community" : "Share to community"}
           </button>
         </div>
       </div>

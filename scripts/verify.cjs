@@ -70,8 +70,10 @@ const ROUTES = ["/", "/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", 
   await page.getByRole("button", { name: "+16%" }).click();
   await page.getByRole("button", { name: "1% of account" }).click();
   await page.locator("#thesis").fill("I expect NVDA to keep rising because AI data-center demand is strong; I am wrong if it breaks below the stop.");
-  const pre = await page.getByText("Pre-trade check").isVisible();
-  check("pre-trade check renders live", pre);
+  const pre = await page.getByText("Pre-flight check").isVisible();
+  check("pre-flight check renders live", pre);
+  check("checklist shows 5 of 5 complete for disciplined order", await page.getByText("5 of 5 complete").isVisible());
+  check("every checklist line is ticked", (await page.locator('[role="checkbox"][data-ok="true"]').count()) === 5);
   await page.getByRole("button", { name: /^Buy \d+ NVDA$/ }).click();
   await waitFor(async () => (await state(page)).trades[0]?.reviewStatus === "done", 15000);
   s = await state(page);
@@ -82,7 +84,7 @@ const ROUTES = ["/", "/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", 
   check("risk sized to ~1% of account", Math.abs((t1.metrics.riskPct ?? 0) - 0.01) < 0.002, `risk ${(t1.metrics.riskPct * 100).toFixed(2)}%`);
   const legs = s.orders.filter((o) => o.status === "open" && o.symbol === "NVDA");
   check("risk-sized bracket is not flagged as oversized", !t1.flags.some((f) => f.tone !== "good" && f.id.startsWith("size")), t1.flags.map((f) => f.id).join(","));
-  check("pre-trade check resets after fill", !(await page.getByText("Pre-trade check").isVisible()));
+  check("pre-flight check resets after fill", !(await page.getByText("Pre-flight check").isVisible()));
   check("bracket creates stop + target legs", legs.some((o) => o.role === "stop-loss") && legs.some((o) => o.role === "take-profit"));
   check("coach review attached", !!t1.review && !!t1.review.headline, t1.review?.source);
   check("review card visible on page", await page.getByText("Coach review").first().isVisible());
@@ -91,6 +93,7 @@ const ROUTES = ["/", "/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", 
   // reckless trade
   await page.goto(`${BASE}/markets/TSLA`);
   await page.locator("#qty").fill("80");
+  check("no-stop order shows stop line unchecked", (await page.locator('[data-check-id="stop"]').getAttribute("data-ok")) === "false");
   await page.getByRole("button", { name: /^Buy 80 TSLA$/ }).click();
   await waitFor(async () => (await state(page)).trades[0]?.symbol === "TSLA");
   s = await state(page);
