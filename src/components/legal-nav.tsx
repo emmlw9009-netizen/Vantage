@@ -9,7 +9,7 @@ export function LegalNav() {
   const path = usePathname();
   return (
     <nav aria-label="Legal pages" className="min-w-0 md:sticky md:top-20">
-      <ul className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible">
+      <ul className="flex gap-1 overflow-x-auto border-b border-rule md:flex-col md:gap-0 md:overflow-visible md:border-b-0 md:border-l">
         {LEGAL_PAGES.map((p) => {
           const active = path === p.href;
           return (
@@ -17,7 +17,7 @@ export function LegalNav() {
               <Link
                 href={p.href}
                 aria-current={active ? "page" : undefined}
-                className={cn("flex min-h-10 items-center rounded-[10px] px-3 text-sm font-medium", active ? "bg-panel text-ink ring-1 ring-line" : "text-ink-2 hover:bg-panel/60 hover:text-ink")}
+                className={cn("relative flex min-h-10 items-center px-3 t-small font-medium md:-ml-px md:border-l-2", active ? "text-ink md:border-ink" : "text-ink-2 hover:text-ink md:border-transparent")}
               >
                 {p.label}
               </Link>

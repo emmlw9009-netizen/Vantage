@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useApp, Profile } from "@/store/app";
 import { cn } from "@/lib/format";
 import { BRAND } from "@/lib/brand";
-import { Avatar } from "./ui";
 import { ConsentCheckbox, consentRecord } from "./consent";
 import { Dialog } from "./dialog";
 
@@ -36,15 +35,16 @@ export function Onboarding() {
   return (
     <Dialog ariaLabel={`Welcome to ${BRAND.name}`} z="z-[60]">
       <div>
-        <div className="mb-6 flex items-center gap-2 text-sm font-medium text-ink-2">
-          <Avatar id="u7" size={24} /> Coach Nova
-          <span className="ml-auto text-sm text-muted">Step {step + 1} of 3</span>
+        <div className="mb-5 flex items-center gap-2 t-small">
+          <span className="font-semibold">Nova</span>
+          <span className="tag tag-nova">AI coach</span>
+          <span className="tnum ml-auto text-ink-2">Step {step + 1} of 3</span>
         </div>
         {step === 0 && (
           <>
-            <h2 className="font-display text-3xl font-bold leading-tight">Welcome to {BRAND.name}. You have $100,000 of paper money.</h2>
-            <p className="mt-2 text-ink-2">I'm your AI coach. I'll review every trade you make, teach you what the pros do, and help you build a strategy. First, what should I call you?</p>
-            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && agreed && setStep(1)} placeholder="Your first name" className="mt-6 h-12 w-full rounded-[10px] bg-panel-2 px-4 outline-none focus:ring-2 focus:ring-accent" />
+            <h2 className="t-h2">Welcome to {BRAND.name}. You have $100,000 in practice money.</h2>
+            <p className="t-note mt-2 text-ink">I&apos;m Nova, your AI coach. I check every trade you place and point you to the lesson that helps. What should I call you?</p>
+            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && agreed && setStep(1)} placeholder="Your first name" className="field mt-5" maxLength={40} />
             <div className="mt-4">
               <ConsentCheckbox checked={agreed} onChange={setAgreed} />
             </div>
@@ -52,7 +52,7 @@ export function Onboarding() {
         )}
         {step === 1 && (
           <>
-            <h2 className="font-display text-3xl font-bold leading-tight">How much investing experience do you have?</h2>
+            <h2 className="t-h2">How much investing experience do you have?</h2>
             <div className="mt-6 grid gap-2">
               {EXP.map((o) => (
                 <Choice key={o.v} active={exp === o.v} onClick={() => setExp(o.v)} label={o.label} sub={o.sub} />
@@ -62,7 +62,7 @@ export function Onboarding() {
         )}
         {step === 2 && (
           <>
-            <h2 className="font-display text-3xl font-bold leading-tight">What's your main goal?</h2>
+            <h2 className="t-h2">What&apos;s your main goal?</h2>
             <div className="mt-6 grid gap-2">
               {GOALS.map((o) => (
                 <Choice key={o.v} active={goal === o.v} onClick={() => setGoal(o.v)} label={o.label} sub={o.sub} />
@@ -71,10 +71,10 @@ export function Onboarding() {
           </>
         )}
         <div className="mt-8 flex items-center justify-between">
-          <button onClick={() => (step ? setStep(step - 1) : finish())} disabled={!step && !agreed} className="h-11 rounded-lg px-2 text-sm text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40">
+          <button onClick={() => (step ? setStep(step - 1) : finish())} disabled={!step && !agreed} className="btn btn-quiet disabled:border-transparent disabled:bg-transparent">
             {step ? "Back" : "Skip"}
           </button>
-          <button onClick={() => (step < 2 ? setStep(step + 1) : finish())} disabled={step === 0 && !agreed} className="inline-flex h-12 items-center rounded-[10px] bg-accent px-6 font-semibold text-accent-ink hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40">
+          <button onClick={() => (step < 2 ? setStep(step + 1) : finish())} disabled={step === 0 && !agreed} className="btn btn-primary btn-lg">
             {step < 2 ? "Continue" : "Start trading"}
           </button>
         </div>
@@ -85,9 +85,12 @@ export function Onboarding() {
 
 function Choice({ active, onClick, label, sub }: { active: boolean; onClick: () => void; label: string; sub: string }) {
   return (
-    <button onClick={onClick} className={cn("rounded-[10px] border p-4 text-left transition", active ? "border-accent bg-accent-soft ring-1 ring-accent" : "border-line hover:bg-panel-2")}>
-      <div className="font-medium">{label}</div>
-      <div className="text-sm text-muted">{sub}</div>
+    <button onClick={onClick} aria-pressed={active} className={cn("flex min-h-14 items-center gap-3 rounded-md border px-4 py-3 text-left", active ? "border-ink bg-well" : "border-edge hover:bg-well")}>
+      <span className={cn("size-4 shrink-0 rounded-full border-[1.5px]", active ? "border-ink bg-ink shadow-[inset_0_0_0_3px_var(--well)]" : "border-edge")} aria-hidden />
+      <span className="min-w-0">
+        <span className="block font-medium">{label}</span>
+        <span className="block t-small text-ink-2">{sub}</span>
+      </span>
     </button>
   );
 }

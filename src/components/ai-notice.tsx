@@ -53,10 +53,10 @@ export function AiNotice() {
       </ul>
       <p className="mt-3 text-sm text-ink-2">
         Nova can be wrong and is not investment advice. Read how this data is handled in the{" "}
-        <Link href="/privacy#ai" target="_blank" rel="noopener" className="font-medium text-series-1 underline underline-offset-2">Privacy Policy</Link>.
+        <Link href="/privacy#ai" target="_blank" rel="noopener" className="link font-medium">Privacy Policy</Link>.
       </p>
       <div className="mt-6 flex justify-end">
-        <button data-autofocus onClick={() => setProfile({ aiNoticeAt: new Date().toISOString() })} className="inline-flex h-12 items-center rounded-[10px] bg-accent px-6 font-semibold text-accent-ink hover:brightness-95">
+        <button data-autofocus onClick={() => setProfile({ aiNoticeAt: new Date().toISOString() })} className="btn btn-primary btn-lg">
           I understand
         </button>
       </div>

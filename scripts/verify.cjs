@@ -51,7 +51,7 @@ const LEGAL_ROUTES = [
   ["/copyright", "Copyright and DMCA policy"],
   ["/accessibility", "Accessibility statement"],
 ];
-const ROUTES = ["/", "/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", "/learn", "/learn/position-sizing", "/coach", "/community", "/settings", ...LEGAL_ROUTES.map((r) => r[0])];
+const ROUTES = ["/", "/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", "/learn", "/learn/position-sizing", "/coach", "/community", "/journal", "/settings", ...LEGAL_ROUTES.map((r) => r[0])];
 const TERMS_VERSION = "2026-11-24";
 /** Onboarding step 1 now requires the consent checkbox before Continue or Skip. */
 async function consent(page) {
@@ -242,6 +242,16 @@ async function consent(page) {
   const shown = await page.locator("text=Account value").locator("..").locator("span.tnum").first().innerText();
   const shownNum = parseFloat(shown.replace(/[$,]/g, ""));
   check("dashboard equity matches positions", Math.abs(shownNum - eq) / eq < 0.002, `${shown} vs ${eq.toFixed(2)}`);
+
+  // journal: trade count and the mistakes chart reflect the core flow
+  await page.goto(`${BASE}/journal`);
+  await page.getByTestId("journal-trade-count").first().waitFor({ timeout: 10000 });
+  s = await state(page);
+  const jCount = (await page.getByTestId("journal-trade-count").first().innerText()).trim();
+  check("journal shows the correct trade count", jCount === String(s.trades.length), `${jCount} vs ${s.trades.length}`);
+  check("journal lists No stop-loss among the most common mistakes", await page.getByTestId("mistakes").getByText("No stop-loss").first().isVisible());
+  check("journal check record ticks or empties every check cell (5 per planned trade)", (await page.locator("table tbody tr").first().locator("td [data-cell]").count()) === 5);
+  await page.goto(`${BASE}/dashboard`);
 
   // persistence across reload
   const before = (await state(page)).trades.length;

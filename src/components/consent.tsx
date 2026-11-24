@@ -16,12 +16,12 @@ export function consentRecord() {
 /** The clickwrap checkbox. Unchecked by default; links open in a new tab so nothing typed is lost. */
 export function ConsentCheckbox({ checked, onChange, id = "consent" }: { checked: boolean; onChange: (v: boolean) => void; id?: string }) {
   return (
-    <label htmlFor={id} className="flex cursor-pointer items-start gap-3 rounded-[10px] bg-panel-2 p-4 text-left text-[15px] leading-snug">
-      <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-[var(--accent)]" />
+    <label htmlFor={id} className="flex cursor-pointer items-start gap-3 rounded-md border border-edge bg-field p-4 text-left text-[15px] leading-6">
+      <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-[var(--ink)]" />
       <span>
         I’m {LEGAL.minimumAge} or older and I agree to the{" "}
-        <Link href="/terms" target="_blank" rel="noopener" className="font-medium text-series-1 underline underline-offset-2">Terms of Service</Link> and{" "}
-        <Link href="/privacy" target="_blank" rel="noopener" className="font-medium text-series-1 underline underline-offset-2">Privacy Policy</Link>. I understand {BRAND.name} is an educational simulator, not investment advice.
+        <Link href="/terms" target="_blank" rel="noopener" className="link font-medium">Terms of Service</Link> and{" "}
+        <Link href="/privacy" target="_blank" rel="noopener" className="link font-medium">Privacy Policy</Link>. I understand {BRAND.name} is an educational simulator, not investment advice.
       </span>
     </label>
   );
@@ -46,10 +46,10 @@ export function ConsentGate() {
         <ConsentCheckbox checked={checked} onChange={setChecked} id="consent-gate" />
       </div>
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <button onClick={() => window.confirm("Delete all your data from this browser and leave?") && deleteAllData()} className="min-h-11 rounded-lg px-2 text-sm text-muted hover:text-ink">
+        <button onClick={() => window.confirm("Delete all your data from this browser and leave?") && deleteAllData()} className="btn btn-quiet text-ink-2">
           I don’t agree: delete my data
         </button>
-        <button disabled={!checked} onClick={() => setProfile({ consent: consentRecord() })} className="inline-flex h-12 items-center rounded-[10px] bg-accent px-6 font-semibold text-accent-ink hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40">
+        <button disabled={!checked} onClick={() => setProfile({ consent: consentRecord() })} className="btn btn-primary btn-lg">
           Agree and continue
         </button>
       </div>

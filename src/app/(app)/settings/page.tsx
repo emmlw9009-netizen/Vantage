@@ -37,7 +37,7 @@ function useTheme() {
 
 const THEMES: readonly (readonly [Theme, string])[] = [["system", "Match my device"], ["light", "Light"], ["dark", "Dark"]];
 
-const btn = "inline-flex h-11 items-center rounded-[10px] border border-line px-4 text-sm font-semibold hover:bg-panel-2";
+const btn = "btn btn-secondary";
 
 export default function SettingsPage() {
   const consent = useApp((s) => s.profile.consent);
@@ -53,28 +53,28 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <h1 className="font-display text-3xl font-bold tracking-tight">Settings</h1>
+    <div className="max-w-[760px]">
+      <h1 className="t-title">Settings</h1>
 
-      <section className="card divide-y divide-line" aria-labelledby="plan-h">
-        <div className="flex flex-wrap items-center justify-between gap-3 p-5">
+      <section className="mt-12 divide-y divide-rule border-t border-rule-strong" aria-labelledby="plan-h">
+        <div className="flex flex-wrap items-center justify-between gap-3 py-5">
           <div>
-            <h2 id="plan-h" className="font-display text-xl font-semibold">Membership</h2>
+            <h2 id="plan-h" className="t-h2">Membership</h2>
             <p className="mt-0.5 text-sm text-ink-2" data-testid="plan-row">Plan: Free</p>
           </div>
         </div>
       </section>
 
-      <section className="card divide-y divide-line" aria-labelledby="data-h">
-        <div className="p-5">
-          <h2 id="data-h" className="font-display text-xl font-semibold">Your data</h2>
+      <section className="mt-12 divide-y divide-rule border-t border-rule-strong" aria-labelledby="data-h">
+        <div className="py-5">
+          <h2 id="data-h" className="t-h2">Your data</h2>
           <p className="mt-1 text-sm text-ink-2">
             {BRAND.name} keeps your practice account, trades, progress and chat in this browser only. There is no account on our servers to export from or delete.
           </p>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 py-5">
           <div className="min-w-0 max-w-md">
-            <h3 className="font-medium">Export my data</h3>
+            <h3 className="font-semibold">Export my data</h3>
             <p className="text-sm text-ink-2">Downloads a JSON file with everything saved in this browser: your account, orders, trades, profile, lessons and chat.</p>
           </div>
           <button
@@ -87,21 +87,21 @@ export default function SettingsPage() {
             Export my data
           </button>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 py-5">
           <div className="min-w-0 max-w-md">
-            <h3 className="font-medium">Delete all my data</h3>
+            <h3 className="font-semibold">Delete all my data</h3>
             <p className="text-sm text-ink-2">Permanently erases everything saved in this browser, including your profile and your agreement record, and takes you back to the start. This cannot be undone. When the app reloads it creates a fresh set of simulated prices, which holds no personal data.</p>
           </div>
-          <button onClick={() => setDialog("delete")} className={cn(btn, "border-down text-down hover:bg-risk-bg")}>
+          <button onClick={() => setDialog("delete")} className="btn btn-danger">
             Delete all my data
           </button>
         </div>
       </section>
 
-      <section className="card divide-y divide-line" aria-labelledby="practice-h">
-        <div className="flex flex-wrap items-center justify-between gap-3 p-5">
+      <section className="mt-12 divide-y divide-rule border-t border-rule-strong" aria-labelledby="practice-h">
+        <div className="flex flex-wrap items-center justify-between gap-3 py-5">
           <div className="min-w-0 max-w-md">
-            <h2 id="practice-h" className="font-display text-xl font-semibold">Practice account</h2>
+            <h2 id="practice-h" className="t-h2">Practice account</h2>
             <p className="mt-1 text-sm text-ink-2">Puts your cash back to $100,000 and clears positions, open orders, trades and the account chart. Your profile, lessons, XP and chat stay.</p>
           </div>
           <button onClick={() => setDialog("reset")} className={btn}>
@@ -110,8 +110,8 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="card p-5" aria-labelledby="theme-h">
-        <h2 id="theme-h" className="font-display text-xl font-semibold">Appearance</h2>
+      <section className="mt-12 border-t border-rule-strong pt-5" aria-labelledby="theme-h">
+        <h2 id="theme-h" className="t-h2">Appearance</h2>
         <div role="radiogroup" aria-label="Theme" className="mt-3 flex flex-wrap gap-2">
           {THEMES.map(([v, label], i) => (
             <button
@@ -129,7 +129,7 @@ export default function SettingsPage() {
                 setTheme(next);
                 document.getElementById(`theme-${next}`)?.focus();
               }}
-              className={cn("h-11 rounded-[10px] border px-4 text-sm font-medium", theme === v ? "border-accent bg-accent-soft ring-1 ring-accent" : "border-line hover:bg-panel-2")}
+              className={cn("btn min-h-11 border px-4", theme === v ? "border-ink bg-ink text-on-ink" : "border-edge text-ink hover:bg-well")}
             >
               {label}
             </button>
@@ -137,15 +137,15 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="card p-5" aria-labelledby="legal-h">
-        <h2 id="legal-h" className="font-display text-xl font-semibold">Legal</h2>
+      <section className="mt-12 border-t border-rule-strong pt-5" aria-labelledby="legal-h">
+        <h2 id="legal-h" className="t-h2">Legal</h2>
         <p className="mt-1 text-sm text-ink-2" data-testid="consent-record">
           {consent ? `You agreed to version ${consent.version} of the terms on ${new Date(consent.acceptedAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}.` : "No agreement recorded."}
         </p>
         <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
-          <li><Link className="inline-flex min-h-10 items-center font-medium text-series-1 underline underline-offset-2" href="/terms">Terms of service</Link></li>
-          <li><Link className="inline-flex min-h-10 items-center font-medium text-series-1 underline underline-offset-2" href="/privacy">Privacy policy</Link></li>
-          <li><Link className="inline-flex min-h-10 items-center font-medium text-series-1 underline underline-offset-2" href="/disclaimer">Disclaimer</Link></li>
+          <li><Link className="link inline-flex min-h-10 items-center" href="/terms">Terms of service</Link></li>
+          <li><Link className="link inline-flex min-h-10 items-center" href="/privacy">Privacy policy</Link></li>
+          <li><Link className="link inline-flex min-h-10 items-center" href="/disclaimer">Disclaimer</Link></li>
         </ul>
         <p className="mt-1 text-sm text-ink-2">Questions about your data: {LEGAL.contactEmail}</p>
       </section>
@@ -154,10 +154,10 @@ export default function SettingsPage() {
         <Dialog title="Delete all your data?" onClose={close}>
           <p className="mt-2 text-ink-2">This erases your practice account, trades, progress, chat and profile from this browser. It cannot be undone. Export first if you want a copy.</p>
           <label htmlFor="delete-confirm" className="mt-5 block text-sm font-medium">Type DELETE to confirm</label>
-          <input id="delete-confirm" data-autofocus autoComplete="off" value={typed} onChange={(e) => setTyped(e.target.value)} className="mt-1.5 h-12 w-full rounded-[10px] bg-panel-2 px-4 outline-none focus:ring-2 focus:ring-accent" />
+          <input id="delete-confirm" data-autofocus autoComplete="off" value={typed} onChange={(e) => setTyped(e.target.value)} className="field mt-1.5" />
           <div className="mt-6 flex justify-end gap-2">
             <button onClick={close} className={btn}>Cancel</button>
-            <button disabled={typed !== "DELETE"} onClick={deleteAllData} className="inline-flex h-11 items-center rounded-[10px] bg-down px-4 text-sm font-semibold text-bg disabled:cursor-not-allowed disabled:opacity-40">
+            <button disabled={typed !== "DELETE"} onClick={deleteAllData} className="btn btn-danger-fill">
               Delete everything
             </button>
           </div>
@@ -175,7 +175,7 @@ export default function SettingsPage() {
                 close();
                 push({ title: "Practice account reset", body: "You have $100,000 again.", tone: "good" });
               }}
-              className="inline-flex h-11 items-center rounded-[10px] bg-accent px-4 text-sm font-semibold text-accent-ink"
+              className="btn btn-primary"
             >
               Reset account
             </button>
