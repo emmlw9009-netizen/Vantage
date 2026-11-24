@@ -1,36 +1,34 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Stockpilot
 
-## Getting Started
+Learn the stock market with an AI coach in your corner: paper trade a live simulated market, get instant feedback on every decision, take an interactive course, and grow with a community.
 
-First, run the development server:
+## Features (v0.1)
+- **Live simulated market**: 18 real companies and ETFs, prices tick every 2s, news headlines move prices (scaled by beta), 1D/1M/3M/1Y charts with hover and trade markers.
+- **Paper trading**: $100k start; market, limit and stop orders; bracket orders (stop-loss + take-profit, one-cancels-other); risk-based position sizing; realized/unrealized P&L; persistent portfolio.
+- **AI coach (Nova)**: a pre-trade check scores the order live, and a post-trade review (rule engine + Claude) gives a 0–100 process score, flags and a next step. A streaming chat coach sees your portfolio, trades and progress, and Nova replies to your community posts.
+- **Course**: 6 modules, 19 lessons, quizzes with explanations, 10 missions verified against your real simulator activity, plus XP and levels.
+- **Community**: feed with posts, likes and comments, a leaderboard ranked on discipline or return, and weekly challenges.
+- Light and dark themes, phone-first responsive layout, accessible deltas (arrow + sign as well as color).
 
+## Run it
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # add your Anthropic API key to turn on the AI coach
+npm run dev                  # http://localhost:3000
+```
+Without a key the coach runs in **offline mode** (rule-based reviews and canned answers), so everything still works.
+
+## Verify
+```bash
+npm run build && npm start   # terminal 1
+npm run verify               # terminal 2: 36 end-to-end checks + screenshots in ./verify-shots
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Working on it with Claude Code
+See `CLAUDE.md` for the architecture map and the agent hierarchy (`.claude/agents/`): Opus plans and reviews, Sonnet agents build, and a Haiku agent runs the verification loop.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Roadmap / not built yet
+- Real accounts + shared database (Supabase/Postgres) so the community, leaderboard and portfolios are multi-user and cross-device. **The community currently uses demo members.**
+- Optional real market data (Polygon / Alpaca / Finnhub) alongside the simulator.
+- Candlestick charts, indicators (MA overlay, volume), short selling, options basics.
+- Push/email streak reminders, weekly AI performance report, achievements.
