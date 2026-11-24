@@ -239,7 +239,7 @@ async function consent(page) {
   s = await state(page);
   const prices = await page.evaluate(() => JSON.parse(localStorage.getItem("sp-market")).state.prices);
   const eq = s.cash + Object.values(s.positions).reduce((a, p) => a + p.qty * prices[p.symbol], 0);
-  const shown = await page.locator("text=Total value").locator("..").locator("span.tnum").first().innerText();
+  const shown = await page.locator("text=Account value").locator("..").locator("span.tnum").first().innerText();
   const shownNum = parseFloat(shown.replace(/[$,]/g, ""));
   check("dashboard equity matches positions", Math.abs(shownNum - eq) / eq < 0.002, `${shown} vs ${eq.toFixed(2)}`);
 

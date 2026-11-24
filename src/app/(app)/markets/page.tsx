@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Star } from "lucide-react";
 import { TICKERS, Sector } from "@/lib/market-data";
 import { useMarket } from "@/store/market";
 import { useApp } from "@/store/app";
 import { Sparkline } from "@/components/price-chart";
-import { Delta, LivePrice, SectionTitle } from "@/components/ui";
+import { Delta, Segmented, SectionTitle } from "@/components/ui";
 import { NewsFeed } from "@/components/news-feed";
 import { cn, usd } from "@/lib/format";
 
@@ -20,75 +19,98 @@ export default function Markets() {
   const watchlist = useApp((s) => s.watchlist);
   const toggleWatch = useApp((s) => s.toggleWatch);
   const [filter, setFilter] = useState<(typeof SECTORS)[number]>("All");
-
   const change = (sym: string) => (prices[sym] && prevClose[sym] ? prices[sym] / prevClose[sym] - 1 : 0);
   const list = TICKERS.filter((t) => (filter === "All" ? true : filter === "Watchlist" ? watchlist.includes(t.symbol) : t.sector === filter));
-  const movers = [...TICKERS].sort((a, b) => Math.abs(change(b.symbol)) - Math.abs(change(a.symbol))).slice(0, 4);
+  const movers = [...TICKERS].sort((a, b) => Math.abs(change(b.symbol)) - Math.abs(change(a.symbol))).slice(0, 5);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Markets</h1>
-        <p className="mt-1 text-sm text-ink-2">Real companies, simulated prices. Prices update every two seconds, and the news moves them.</p>
-      </div>
+    <div>
+      <h1 className="t-title">Markets</h1>
+      <p className="mt-2 max-w-[72ch] t-lead">Real companies, simulated prices. Prices update every 2 seconds, and the simulated news moves them.</p>
 
-      <section>
-        <SectionTitle title="Biggest movers today" />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {movers.map((t) => (
-            <Link key={t.symbol} href={`/markets/${t.symbol}`} className="card p-4 transition hover:-translate-y-0.5">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold">{t.symbol}</span>
-                <Delta ratio={change(t.symbol)} size="xs" />
-              </div>
-              <div className="mt-1 truncate text-xs text-muted">{t.name}</div>
-              <div className="mt-3 flex items-end justify-between gap-2">
-                <LivePrice value={prices[t.symbol] ?? t.basePrice} format={(n) => usd(n)} className="font-semibold" />
-                <Sparkline data={(intraday[t.symbol] ?? []).slice(-60).map((b) => b.c)} width={72} height={28} />
-              </div>
-            </Link>
-          ))}
+      {/* phones: movers as one line */}
+      <p className="mt-4 t-small text-ink-2 lg:hidden">
+        <span className="font-medium text-ink">Biggest moves today: </span>
+        {movers.slice(0, 3).map((t, i) => (
+          <span key={t.symbol} className="whitespace-nowrap">
+            <Link href={`/markets/${t.symbol}`} className="link text-ink">
+              {t.symbol}
+            </Link>{" "}
+            <Delta ratio={change(t.symbol)} size="xs" />
+            {i < 2 ? ", " : ""}
+          </span>
+        ))}
+      </p>
+
+      <div className="mt-8 grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="min-w-0">
+          <Segmented kind="tabs" label="Filter by sector" value={filter} onChange={setFilter} options={SECTORS.map((s) => ({ value: s, label: s === "Index ETF" ? "Index ETFs" : s }))} />
+          <table className="mt-2 w-full t-table">
+            <caption className="sr-only">Stocks and ETFs, {filter === "All" ? "all sectors" : filter}</caption>
+            <thead>
+              <tr className="border-b border-rule-strong text-left t-micro text-ink-2">
+                <th scope="col" className="py-2 pr-3 font-medium">Symbol</th>
+                <th scope="col" className="hidden py-2 pr-3 font-medium md:table-cell">Sector</th>
+                <th scope="col" className="hidden py-2 pr-3 font-medium sm:table-cell">Today</th>
+                <th scope="col" className="py-2 pr-3 text-right font-medium">Price</th>
+                <th scope="col" className="py-2 text-right font-medium sm:pr-3">Day change</th>
+                <th scope="col" className="hidden py-2 text-right font-medium lg:table-cell">
+                  <span className="sr-only">Watchlist</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((t) => {
+                const on = watchlist.includes(t.symbol);
+                return (
+                  <tr key={t.symbol} className="border-b border-rule hover:bg-well">
+                    <td className="max-w-0 py-2.5 pr-3 sm:max-w-none">
+                      <Link href={`/markets/${t.symbol}`} className="block min-h-10 hover:underline">
+                        <span className="block font-semibold text-[15px] t-wide">{t.symbol}</span>
+                        <span className="block truncate t-micro text-ink-2">{t.name}</span>
+                      </Link>
+                    </td>
+                    <td className="hidden py-2.5 pr-3 text-ink-2 md:table-cell">{t.sector}</td>
+                    <td className="hidden py-2.5 pr-3 sm:table-cell">
+                      <Sparkline data={(intraday[t.symbol] ?? []).slice(-80).map((b) => b.c)} width={96} height={26} base={prevClose[t.symbol]} />
+                    </td>
+                    <td className="py-2.5 pr-3 text-right font-medium">{usd(prices[t.symbol] ?? t.basePrice)}</td>
+                    <td className="py-2.5 text-right sm:pr-3">
+                      <Delta ratio={change(t.symbol)} />
+                    </td>
+                    <td className="hidden py-2.5 text-right lg:table-cell">
+                      <button onClick={() => toggleWatch(t.symbol)} aria-pressed={on} className={cn("btn min-h-9 px-2.5 t-small font-medium", on ? "btn-secondary" : "btn-quiet text-ink-2")}>
+                        {on ? "Watching" : "Watch"}
+                        <span className="sr-only"> {t.symbol}</span>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {list.length === 0 && <p className="mt-4 t-small text-ink-2">Your watchlist is empty. Open a stock and press Watch to add it here.</p>}
         </div>
-      </section>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <section className="card p-2 sm:p-4 lg:col-span-2">
-          <div className="flex gap-1.5 overflow-x-auto px-2 pb-3 pt-1 sm:px-0">
-            {SECTORS.map((s) => (
-              <button key={s} onClick={() => setFilter(s)} className={cn("shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition", filter === s ? "bg-ink text-bg" : "bg-panel-2 text-ink-2 hover:text-ink")}>
-                {s}
-              </button>
-            ))}
-          </div>
-          <ul className="divide-y divide-line">
-            {list.map((t) => (
-              <li key={t.symbol} className="flex items-center gap-3 px-2 py-3">
-                <button onClick={() => toggleWatch(t.symbol)} aria-label={watchlist.includes(t.symbol) ? `Remove ${t.symbol} from watchlist` : `Add ${t.symbol} to watchlist`} className="text-muted hover:text-ink">
-                  <Star className={cn("size-4", watchlist.includes(t.symbol) && "fill-warn text-warn")} />
-                </button>
-                <Link href={`/markets/${t.symbol}`} className="flex min-w-0 flex-1 items-center gap-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-panel-2 text-[11px] font-bold">{t.symbol.slice(0, 4)}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-semibold">{t.symbol}</span>
-                    <span className="block truncate text-xs text-muted">{t.name} · {t.sector}</span>
-                  </span>
-                  <span className="hidden sm:block">
-                    <Sparkline data={(intraday[t.symbol] ?? []).slice(-80).map((b) => b.c)} width={110} height={32} />
-                  </span>
-                  <span className="w-24 text-right">
-                    <LivePrice value={prices[t.symbol] ?? t.basePrice} format={(n) => usd(n)} className="block text-sm font-semibold" />
-                    <Delta ratio={change(t.symbol)} size="xs" />
-                  </span>
-                </Link>
-              </li>
-            ))}
-            {list.length === 0 && <li className="p-6 text-center text-sm text-muted">Star stocks to build your watchlist.</li>}
-          </ul>
-        </section>
-        <section className="card h-fit p-5">
-          <SectionTitle title="Live headlines" />
-          <NewsFeed limit={8} />
-        </section>
+        <aside className="min-w-0 space-y-12">
+          <section className="hidden lg:block" aria-labelledby="movers-h">
+            <SectionTitle id="movers-h" title="Biggest moves today" />
+            <ol className="t-small">
+              {movers.map((t) => (
+                <li key={t.symbol} className="flex items-center justify-between gap-3 border-b border-rule py-2">
+                  <Link href={`/markets/${t.symbol}`} className="min-w-0 truncate hover:underline">
+                    <span className="font-semibold">{t.symbol}</span> <span className="text-ink-2">{t.name}</span>
+                  </Link>
+                  <Delta ratio={change(t.symbol)} />
+                </li>
+              ))}
+            </ol>
+          </section>
+          <section aria-labelledby="headlines-h">
+            <SectionTitle id="headlines-h" title="Live headlines" />
+            <NewsFeed limit={8} />
+          </section>
+        </aside>
       </div>
     </div>
   );

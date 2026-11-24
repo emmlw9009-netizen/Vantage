@@ -1,47 +1,55 @@
 "use client";
 
 import Link from "next/link";
-import { FlaskConical, Newspaper } from "lucide-react";
 import { useMarket } from "@/store/market";
 import { LESSON_MAP } from "@/lib/course";
 import { timeAgo } from "@/lib/format";
 import { Delta } from "./ui";
 
+const KIND: Record<string, string> = { earnings: "Earnings", guidance: "Guidance", analyst: "Analyst note", macro: "Economy", product: "Product" };
+
+/** Simulated headlines: every item carries the Simulated tag; the list ends with the not-real-news line. */
 export function NewsFeed({ symbol, limit = 6 }: { symbol?: string; limit?: number }) {
   const news = useMarket((s) => s.news);
   const items = news.filter((n) => !symbol || n.symbol === symbol || n.symbol === null).slice(0, limit);
   if (!items.length)
-    return (
-      <div className="flex items-center gap-3 rounded-2xl border border-dashed border-line p-4 text-sm text-muted">
-        <Newspaper className="size-4" /> Simulated headlines appear here as the market moves. They are fictional scenarios for practice, not real news.
-      </div>
-    );
+    return <p className="t-small text-ink-2">Simulated headlines appear here as the market moves. They are fictional scenarios for practice, not real news.</p>;
   return (
     <>
-    <ul className="divide-y divide-line">
-      {items.map((n) => (
-        <li key={n.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-          <span className="mt-0.5 rounded-md bg-panel-2 px-1.5 py-0.5 text-xs font-semibold text-ink-2">{n.symbol ?? "Macro"}</span>
-          <div className="min-w-0 flex-1">
-            <div className="mb-1"><span data-testid="sim-tag" className="inline-flex items-center gap-1 rounded-full border border-line bg-panel-2 px-2 py-0.5 text-xs font-semibold text-ink-2"><FlaskConical className="size-3" aria-hidden />Simulated</span></div>
-            <div className="text-sm font-medium">{n.symbol ? <Link href={`/markets/${n.symbol}`} className="hover:underline">{n.headline}</Link> : n.headline}</div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+      <ul className="border-t border-rule">
+        {items.map((n) => (
+          <li key={n.id} className="border-b border-rule py-3">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="tag">{n.symbol ?? "Market"}</span>
+              <span data-testid="sim-tag" className="tag">
+                Simulated
+              </span>
+            </div>
+            <p className="mt-1.5 t-small font-medium break-words">
+              {n.symbol ? (
+                <Link href={`/markets/${n.symbol}`} className="hover:underline">
+                  {n.headline}
+                </Link>
+              ) : (
+                n.headline
+              )}
+            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 t-micro text-ink-2">
               <span>{timeAgo(n.at)}</span>
-              <span className="capitalize">{n.kind}</span>
-              <span className="flex items-center gap-1">
+              <span>{KIND[n.kind] ?? n.kind}</span>
+              <span className="inline-flex items-center gap-1">
                 Impact <Delta ratio={n.impact} size="xs" />
               </span>
               {n.lesson && LESSON_MAP[n.lesson] && (
-                <Link href={`/learn/${n.lesson}`} className="font-medium text-series-1 hover:underline">
-                  Why this moves stocks
+                <Link href={`/learn/${n.lesson}`} className="link inline-flex min-h-6 items-center">
+                  How news moves prices
                 </Link>
               )}
             </div>
-          </div>
-        </li>
-      ))}
-    </ul>
-    <p className="mt-3 border-t border-line pt-3 text-xs text-muted">Fictional scenarios for practice. Not real news, and not about any company&apos;s actual business. Not affiliated with or endorsed by any company named.</p>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 t-micro text-ink-2">Fictional scenarios for practice. Not real news, and not about any company&apos;s actual business. Not affiliated with or endorsed by any company named.</p>
     </>
   );
 }
