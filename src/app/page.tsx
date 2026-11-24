@@ -42,6 +42,7 @@ export default function Landing() {
             <span className="bg-gradient-to-r text-accent">with a coach in your corner.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-lg text-ink-2">Paper trade a live market, get instant AI feedback on every decision, and build real skill before you risk a single real dollar.</p>
+          <p className="mx-auto mt-3 max-w-xl text-sm text-ink-2">Vantage is an educational simulator. No real money, no real trades. Not investment advice.</p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link href="/dashboard" className="inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 font-semibold text-accent-ink shadow-[0_8px_30px_-8px_var(--accent)] hover:brightness-95">
               Start with $100k paper money <ArrowRight className="size-4" />
@@ -56,7 +57,7 @@ export default function Landing() {
           <div className="card p-5 md:col-span-3">
             <div className="flex items-start justify-between">
               <div>
-                <div className="text-sm text-muted">NVDA · NVIDIA</div>
+                <div className="text-sm text-muted">NVDA · NVIDIA <span className="ml-1 rounded-full border border-line px-2 py-0.5 text-xs font-medium text-ink-2">Example, simulated price</span></div>
                 <div className="tnum mt-1 text-4xl font-semibold tracking-tight">$186.52</div>
                 <div className="tnum text-sm font-medium text-up">▲ +$3.18 (+1.73%) today</div>
               </div>
@@ -81,6 +82,7 @@ export default function Landing() {
               <circle cx="200" cy="104" r="7" fill="var(--up)" stroke="var(--panel)" strokeWidth="2" />
               <text x="200" y="107.5" textAnchor="middle" fontSize="8" fontWeight="700" fill="#fff">B</text>
             </svg>
+            <p className="mt-2 text-xs text-muted">Example screen with made-up numbers. Not a real quote.</p>
           </div>
           <div className="card p-5 md:col-span-2">
             <div className="flex items-center gap-3">
@@ -92,7 +94,7 @@ export default function Landing() {
                 <span className="absolute inset-0 grid place-items-center text-sm font-semibold">87</span>
               </div>
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wider text-muted">Coach review</div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted">Coach review (example)</div>
                 <div className="font-semibold">Disciplined entry on NVDA</div>
               </div>
             </div>
@@ -106,6 +108,7 @@ export default function Landing() {
               <li className="flex gap-2"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" /> 41% of your account is now in Technology</li>
               <li className="flex gap-2"><ShieldAlert className="mt-0.5 size-4 shrink-0 text-down" /> Earnings on deck: size down into events</li>
             </ul>
+            <p className="mt-4 border-t border-line pt-3 text-xs text-muted">Example, not a real user review. Sample score from a simulated trade. Simulated results are not real trades.</p>
           </div>
         </div>
       </section>

@@ -48,6 +48,8 @@ export interface Lesson {
   callout?: { title: string; body: string };
   quiz: QuizQ[];
   mission?: MissionId;
+  /** Citations for statistics or research the lesson mentions. Rendered as a "Sources" line. */
+  sources?: { label: string; url: string }[];
 }
 
 export interface Module {
@@ -72,7 +74,7 @@ export const COURSE: Module[] = [
           {
             heading: "You're buying a piece of a business",
             body: [
-              "When you buy one share of Apple, you own a tiny fraction of the company: its factories, its cash, its brand and, most importantly, its future profits. There are about 15 billion Apple shares, so one share is a very small slice — but it's a real claim on a real business.",
+              "When you buy one share of Apple, you own a tiny fraction of the company: its factories, its cash, its brand and, most importantly, its future profits. Big public companies have billions of shares, so one share is a very small slice — but it's a real claim on a real business.",
               "Companies sell shares to raise money to grow. After that first sale (the IPO), shares trade between investors on an exchange. The company isn't involved in your trade; you're buying from another investor who wants to sell.",
             ],
           },
@@ -153,7 +155,7 @@ export const COURSE: Module[] = [
   {
     id: "risk",
     title: "Risk First",
-    description: "The part most beginners skip — and the reason most of them quit.",
+    description: "The part many beginners skip, and a common reason people struggle.",
     lessons: [
       {
         slug: "position-sizing",
@@ -165,7 +167,7 @@ export const COURSE: Module[] = [
             heading: "Survive first",
             body: [
               "Lose 50% and you need a 100% gain just to get back to even. Big losses are hard to recover from, so the first job of any trader is to stay small enough that no single mistake is fatal.",
-              "The classic rule: never risk more than 1–2% of your account on one trade. \"Risk\" here doesn't mean what you spend. It means what you'd lose if your stop-loss triggers.",
+              "A common rule of thumb (general guidance, not a law): avoid risking more than 1–2% of your account on one trade. \"Risk\" here doesn't mean what you spend. It means what you'd lose if your stop-loss triggers.",
             ],
           },
           {
@@ -194,7 +196,7 @@ export const COURSE: Module[] = [
             heading: "Why stops exist",
             body: [
               "Every trade is a hypothesis: \"I think this goes up because…\". A stop-loss marks the price where your hypothesis is clearly wrong. When it's hit, you're not giving up — you're following the evidence.",
-              "Without a stop, losing trades tend to turn into \"long-term investments\". That's how a 5% loss becomes a 40% loss.",
+              "Without a stop, losing trades tend to turn into \"long-term investments\". That's how a small loss can grow into a big one.",
             ],
           },
           {
@@ -373,7 +375,7 @@ export const COURSE: Module[] = [
           {
             heading: "Priced in",
             body: [
-              "By the time you read a headline, the market has usually already reacted. Upgrades, downgrades and product news often cause a sharp move that partly fades. Buying right after a 6% pop means paying the new price for old news.",
+              "By the time you read a headline, the market has often already reacted. Upgrades, downgrades and product news often cause a sharp move that partly fades. Buying right after a 6% pop means paying the new price for old news.",
               "Ask three questions: Does this change the business's long-term earnings? Is the move bigger or smaller than the news deserves? Would I want this stock if the headline didn't exist?",
             ],
           },
@@ -397,7 +399,7 @@ export const COURSE: Module[] = [
           {
             heading: "The chase",
             body: [
-              "You watch a stock rip 8% and feel you have to get in. That urgency is FOMO, and it usually shows up near short-term tops, when everyone else has already bought.",
+              "You watch a stock rip 8% and feel you have to get in. That urgency is FOMO, and it often shows up after a big move has already happened.",
               "The fix is a rule: no entries without a plan written before the move. If you missed it, you missed it. There's always another setup. Your coach will flag buys made right after big jumps.",
             ],
           },
@@ -414,13 +416,14 @@ export const COURSE: Module[] = [
           {
             heading: "Losses hurt twice as much",
             body: [
-              "Research by Kahneman and Tversky found that losses feel about twice as painful as equal gains feel good. So we avoid realizing losses (\"it'll come back\") and rush to lock in gains (\"take the money\"). That's exactly backwards.",
+              "Kahneman and Tversky's prospect theory research found that people weigh losses more heavily than equal gains. In their experiments the effect was often estimated at roughly two to one. So we avoid realizing losses (\"it'll come back\") and rush to lock in gains (\"take the money\"). That's exactly backwards.",
               "Averaging down — buying more of a losing stock — can be rational if the thesis is intact, but it's often just loss aversion in disguise. Ask: would I buy this today if I didn't already own it?",
             ],
           },
         ],
-        keyPoints: ["Losses feel ~2× worse than gains feel good", "\"Would I buy it today?\" cuts through the bias", "Averaging down needs an intact thesis"],
+        keyPoints: ["Losses tend to feel worse than equal gains feel good (roughly 2× in studies)", "\"Would I buy it today?\" cuts through the bias", "Averaging down needs an intact thesis"],
         quiz: [{ q: "Which question best counters loss aversion on a losing position?", options: ["How much am I down?", "Would I buy it today at this price?", "When will it come back?", "What did I pay?"], answer: 1, why: "It forces a decision on the present, not on your entry price." }],
+        sources: [{ label: "Kahneman and Tversky (1979), Prospect Theory: An Analysis of Decision under Risk", url: "https://doi.org/10.2307/1914185" }],
       },
       {
         slug: "overtrading",
@@ -431,13 +434,14 @@ export const COURSE: Module[] = [
           {
             heading: "Activity is not progress",
             body: [
-              "Each trade has costs (spread, slippage, taxes) and each one is another chance to act on emotion. Studies of retail investors consistently find that the most active traders earn the lowest returns.",
+              "Each trade has costs (spread, slippage, taxes) and each one is another chance to act on emotion. Barber and Odean studied thousands of brokerage accounts and found that the households that traded the most earned lower net returns than those that traded less.",
               "If you catch yourself making trade after trade, especially after a loss (\"revenge trading\"), stop. Close the app and review your journal instead.",
             ],
           },
         ],
         keyPoints: ["Every trade has a cost", "Revenge trading after losses is a trap", "Fewer, better trades"],
         quiz: [{ q: "You just took a loss and want to win it back immediately. What is that called?", options: ["Hedging", "Revenge trading", "Scalping", "Diversifying"], answer: 1, why: "Trading to undo a loss is emotional, not strategic." }],
+        sources: [{ label: "Barber and Odean (2000), Trading Is Hazardous to Your Wealth", url: "https://doi.org/10.1111/0022-1082.00226" }],
       },
       {
         slug: "trading-journal",
@@ -473,14 +477,15 @@ export const COURSE: Module[] = [
           {
             heading: "The benchmark is tough",
             body: [
-              "Over long periods, most professional fund managers fail to beat the S&P 500 after fees. An index ETF like SPY gives you the market's return, cheaply, with almost no effort. That's a high bar for any stock picker.",
+              "SPIVA scorecards, which compare funds with their benchmarks, have found that over long periods most actively managed U.S. large-cap funds trail the S&P 500 after fees. Past results do not predict future ones. An index ETF like SPY gives you the market's return, cheaply, with almost no effort. That's a high bar for any stock picker.",
               "Many successful investors do both: a core of index funds for most of their money, plus a smaller \"satellite\" portfolio for individual ideas they've researched. Your dashboard compares your returns with SPY so you always know whether your picks are adding value.",
             ],
           },
         ],
-        keyPoints: ["Most pros don't beat the index long-term", "Core-and-satellite is a practical middle ground", "Always measure yourself against SPY"],
+        keyPoints: ["Most active funds have trailed the index over long periods (SPIVA)", "Core-and-satellite is a practical middle ground", "Always measure yourself against SPY"],
         quiz: [{ q: "What is a core-and-satellite portfolio?", options: ["All individual stocks", "Mostly index funds plus a smaller set of picks", "Only bonds", "Day trading"], answer: 1, why: "A low-cost core, plus satellites for conviction ideas." }],
         mission: "buy-etf",
+        sources: [{ label: "S&P Dow Jones Indices, SPIVA U.S. Scorecard", url: "https://www.spglobal.com/spdji/en/research-insights/spiva/" }],
       },
       {
         slug: "build-your-plan",

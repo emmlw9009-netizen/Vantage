@@ -84,6 +84,18 @@ export default function LessonPage() {
             ))}
           </ul>
         </section>
+        {lesson.sources && lesson.sources.length > 0 && (
+          <p className="border-t border-line pt-4 text-sm text-ink-2" data-testid="lesson-sources">
+            <span className="font-semibold">Sources:</span>{" "}
+            {lesson.sources.map((src, i) => (
+              <span key={src.url}>
+                {i > 0 && "; "}
+                <a href={src.url} target="_blank" rel="noopener noreferrer" className="text-series-1 underline underline-offset-2">{src.label}</a>
+              </span>
+            ))}
+            . General education, not investment advice.
+          </p>
+        )}
       </div>
 
       <section className="card p-6 sm:p-8">

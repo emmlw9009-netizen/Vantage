@@ -120,6 +120,8 @@ interface AppState {
   posts: Post[];
   liked: Record<string, boolean>;
   comments: Record<string, Comment[]>;
+  /** Posts and comments the user reported. They are hidden for this user. */
+  reported: Record<string, true>;
   following: Record<string, boolean>;
   // coach
   chat: ChatMsg[];
@@ -145,6 +147,8 @@ interface AppState {
   addXp: (n: number) => void;
   addPost: (p: Omit<Post, "id" | "at" | "likes" | "authorId">) => string;
   toggleLike: (postId: string) => void;
+  reportItem: (id: string) => void;
+  unreportItem: (id: string) => void;
   addComment: (postId: string, body: string, authorId?: string) => void;
   toggleFollow: (userId: string) => void;
   pushChat: (m: Omit<ChatMsg, "id" | "at">) => string;
@@ -284,6 +288,7 @@ export const useApp = create<AppState>()(
         posts: [],
         liked: {},
         comments: {},
+        reported: {},
         following: {},
         chat: [],
 
@@ -400,6 +405,14 @@ export const useApp = create<AppState>()(
           set((s) => ({
             comments: { ...s.comments, [postId]: [...(s.comments[postId] ?? []), { id: uid(), authorId, body, at: Date.now() }] },
           })),
+
+        reportItem: (id) => set((s) => ({ reported: { ...s.reported, [id]: true } })),
+        unreportItem: (id) =>
+          set((s) => {
+            const { [id]: _removed, ...rest } = s.reported;
+            void _removed;
+            return { reported: rest };
+          }),
 
         toggleFollow: (userId) => set((s) => ({ following: { ...s.following, [userId]: !s.following[userId] } })),
 

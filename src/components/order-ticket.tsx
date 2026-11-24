@@ -258,7 +258,7 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
         <button onClick={submit} className={cn("h-12 w-full rounded-lg text-sm font-semibold transition hover:brightness-95 active:scale-[0.99]", side === "buy" ? "bg-accent text-accent-ink" : "bg-ink text-bg")}>
           {type === "market" ? `${side === "buy" ? "Buy" : "Sell"} ${q || 0} ${symbol}` : `Place ${type} ${side}`}
         </button>
-        <p className="mt-2 text-xs text-muted">Paper trading, simulated prices, no real money.</p>
+        <p className="mt-2 text-xs text-muted">Simulated trade. Prices are generated and are not real market prices. No real money.</p>
       </div>
     </div>
   );

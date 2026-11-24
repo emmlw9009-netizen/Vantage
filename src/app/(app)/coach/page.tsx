@@ -77,7 +77,9 @@ function Coach() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ messages: history, context }),
       });
-      if (res.headers.get("x-coach-mode") === "offline" || res.headers.get("content-type")?.includes("application/json")) {
+      // a non-OK response (404 page, 500) or an HTML body is never shown as AI text: fall back to the offline answer
+      const ct = res.headers.get("content-type") ?? "";
+      if (!res.ok || ct.includes("text/html") || res.headers.get("x-coach-mode") === "offline" || ct.includes("application/json")) {
         setMode("offline");
         updateChat(replyId, offlineAnswer(q, context));
       } else if (res.body) {

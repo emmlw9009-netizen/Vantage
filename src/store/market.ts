@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { Bar, NewsItem, TICKERS, generateHistory, gaussian, mulberry32, randomNews, round2, hashString } from "@/lib/market-data";
+import { Bar, NewsItem, TICKERS, generateHistory, gaussian, isCurrentHeadline, mulberry32, randomNews, round2, hashString } from "@/lib/market-data";
 
 const TICKS_PER_DAY = 78; // each live tick ≈ 5 simulated minutes
 const INTRADAY_CAP = 240;
@@ -49,12 +49,16 @@ function seedSession() {
     intraday[t.symbol] = points;
     prices[t.symbol] = points[points.length - 1].c;
   }
+  return { prices, prevClose, intraday, news: seedNews(now), sessionStarted: now };
+}
+
+function seedNews(now = Date.now()): NewsItem[] {
   const news: NewsItem[] = [];
   for (let guard = 0; news.length < 3 && guard < 50; guard++) {
     const n = randomNews();
     if (!news.some((x) => x.headline === n.headline)) news.push({ ...n, at: now - (news.length + 1) * 7 * 60_000 });
   }
-  return { prices, prevClose, intraday, news, sessionStarted: now };
+  return news;
 }
 
 export const useMarket = create<MarketState>()(
@@ -69,7 +73,8 @@ export const useMarket = create<MarketState>()(
       init: () => {
         const s = get();
         if (Object.keys(s.prices).length === TICKERS.length && Object.keys(s.intraday).length) {
-          set({ initialized: true });
+          // stored headlines from older templates are dropped on load (see merge); refill if none are left
+          set({ initialized: true, ...(s.news.length ? {} : { news: seedNews() }) });
           return;
         }
         set({ ...seedSession(), initialized: true });
@@ -106,6 +111,11 @@ export const useMarket = create<MarketState>()(
     {
       name: "sp-market",
       version: 1,
+      // Drop persisted headlines that don't match the current templates (old ones alleged specific events about real companies).
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<MarketState>;
+        return { ...current, ...p, news: (p.news ?? []).filter((n) => isCurrentHeadline(n?.headline)) };
+      },
       partialize: (s) => ({ prices: s.prices, prevClose: s.prevClose, intraday: s.intraday, news: s.news, sessionStarted: s.sessionStarted }),
     },
   ),

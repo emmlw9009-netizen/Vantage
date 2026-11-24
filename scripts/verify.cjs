@@ -184,7 +184,7 @@ async function consent(page) {
   // community
   await page.goto(`${BASE}/community`);
   await page.getByLabel("Post text").fill("Verification post: bracket on NVDA at 1% risk.");
-  await page.getByRole("button", { name: "Post" }).click();
+  await page.getByRole("button", { name: "Post", exact: true }).click();
   const novaReplied = await waitFor(async () => {
     const st = await state(page);
     const id = st.posts[0]?.id;
@@ -362,6 +362,146 @@ async function consent(page) {
     const m = p.getByRole("dialog");
     check("phone menu has Settings, the disclaimer and legal links", (await m.getByRole("link", { name: "Settings" }).isVisible()) && (await m.getByText("Simulated prices and news. Educational only, not investment advice.").isVisible()) && (await m.getByRole("link", { name: "Terms" }).isVisible()) && (await m.getByRole("link", { name: "Privacy" }).isVisible()) && (await m.getByRole("link", { name: "Disclaimer" }).isVisible()));
     await c.close();
+  }
+
+  // ---------------- Task 8B: simulated news, no fake social proof, citations, report, bad responses ----------------
+  console.log("\nSimulated news, community honesty, citations, report, bad responses");
+  {
+    // news: every headline is tagged Simulated; stale persisted headlines are dropped on load
+    const c = await browser.newContext({ viewport: { width: 1440, height: 1000 }, storageState: storageNow });
+    const p = await c.newPage();
+    watch(p, "news");
+    await p.addInitScript(() => {
+      if (sessionStorage.getItem("news-patched")) return;
+      sessionStorage.setItem("news-patched", "1");
+      const raw = localStorage.getItem("sp-market");
+      if (!raw) return;
+      const st = JSON.parse(raw);
+      st.state.news = [{ id: "old1", symbol: "TSLA", headline: "Regulators open an inquiry into Tesla", kind: "product", impact: -0.03, at: Date.now() }, { id: "old2", symbol: "AAPL", headline: "Apple CFO departs unexpectedly", kind: "guidance", impact: -0.03, at: Date.now() }, ...st.state.news];
+      localStorage.setItem("sp-market", JSON.stringify(st));
+    });
+    await p.goto(`${BASE}/markets`);
+    await p.getByText("Live headlines").waitFor();
+    await p.waitForTimeout(1500);
+    const heads = await p.evaluate(() => JSON.parse(localStorage.getItem("sp-market")).state.news.map((n) => n.headline));
+    check("stale stored headlines (regulator inquiry, CFO departs) are dropped on load", heads.length > 0 && !heads.some((h) => /inquiry|CFO|delays|cuts outlook|misses on revenue|margins shrink/i.test(h)), heads.slice(0, 2).join(" | "));
+    check("every stored headline matches a simulation template", heads.every((h) => /simulat|hypothetical/i.test(h)), heads.find((h) => !/simulat|hypothetical/i.test(h)) || "");
+    const items = await p.locator("section:has-text('Live headlines') ul > li").count();
+    const tags = await p.locator("section:has-text('Live headlines') [data-testid=sim-tag]").allInnerTexts();
+    check("every headline carries a visible Simulated tag", items > 0 && tags.length === items && tags.every((t) => t.trim() === "Simulated"), `${tags.length} tags for ${items} headlines`);
+    check("news panel says it is fictional and not affiliated", (await p.getByText(/Fictional scenarios for practice\. Not real news/).first().isVisible()) && (await p.getByText(/Not affiliated with or endorsed by any company named/).first().isVisible()));
+    await p.goto(`${BASE}/markets/NVDA`);
+    check("ticket shows the simulated-trade line above the buttons", await p.getByText("Simulated trade. Prices are generated and are not real market prices.").isVisible());
+    await p.goto(`${BASE}/dashboard`);
+    check("dashboard return is labelled as simulated results", await p.getByTestId("sim-results-note").isVisible());
+    await c.close();
+  }
+  {
+    // landing: mock content is labelled Example
+    const c = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    const p = await c.newPage();
+    watch(p, "landing-example");
+    await p.goto(`${BASE}/`);
+    check("landing labels the mock quote and mock review as examples", (await p.getByText("Example, simulated price").isVisible()) && (await p.getByText(/Example, not a real user review/).isVisible()) && (await p.getByText(/Example screen with made-up numbers/).isVisible()));
+    check("landing hero states it is a simulator, not advice", await p.getByText("Vantage is an educational simulator. No real money, no real trades. Not investment advice.").first().isVisible());
+    await c.close();
+  }
+  {
+    // citations
+    const c = await browser.newContext({ viewport: { width: 1440, height: 1000 }, storageState: storageNow });
+    const p = await c.newPage();
+    watch(p, "sources");
+    for (const [slug, frag] of [["index-vs-picking", "spglobal.com/spdji/en/research-insights/spiva"], ["overtrading", "doi.org/10.1111/0022-1082.00226"], ["loss-aversion", "doi.org/10.2307/1914185"]]) {
+      await p.goto(`${BASE}/learn/${slug}`);
+      const a = p.getByTestId("lesson-sources").getByRole("link");
+      const href = (await a.count()) === 1 ? await a.getAttribute("href") : "";
+      check(`/learn/${slug} ends with a Sources line linking ${frag}`, href.includes(frag) && (await a.getAttribute("target")) === "_blank" && (await p.getByTestId("lesson-sources").innerText()).startsWith("Sources:"), href);
+    }
+    await p.goto(`${BASE}/learn/stop-losses`);
+    check("lessons without statistics have no Sources line", (await p.getByTestId("lesson-sources").count()) === 0);
+    await c.close();
+  }
+  {
+    // community: no fabricated social proof, Demo labels, AI labels, Report
+    const c = await browser.newContext({ viewport: { width: 1440, height: 1400 }, storageState: storageNow });
+    const p = await c.newPage();
+    watch(p, "community-honesty");
+    await p.goto(`${BASE}/community`);
+    await p.getByLabel("Post text").waitFor();
+    const demoArticles = p.locator("article:has([data-demo])");
+    const nDemo = await demoArticles.count();
+    check("all seeded posts carry a Demo label", nDemo === 7, `${nDemo} demo posts`);
+    check("no demo post shows a like count", (await p.locator("article:has([data-demo]) [data-like-count]").count()) === 0);
+    const likeTexts = await demoArticles.locator("button[data-like]").allInnerTexts();
+    check("no seeded like number appears on any demo post", likeTexts.every((t) => t.trim() === ""), JSON.stringify(likeTexts));
+    const first = demoArticles.first();
+    await first.getByRole("button", { name: "Like", exact: true }).click();
+    check("liking a demo post shows only your own like (1)", (await first.locator("[data-like-count]").innerText()) === "1");
+    await first.getByRole("button", { name: "Unlike", exact: true }).click();
+    check("unliking hides the count again", (await first.locator("[data-like-count]").count()) === 0);
+    check("composer links to the community guidelines", (await p.locator('main a[href="/community-guidelines"]').count()) >= 1);
+    // Nova label on seeded and real comments
+    const p2 = p.locator("article", { hasText: "bought TSLA after a +7% day" });
+    await p2.getByRole("button", { name: /^Comments/ }).click();
+    const novaBubble = p2.locator("div.rounded-2xl", { hasText: "Great reflection" });
+    check("Nova's comments carry an AI-generated label", (await novaBubble.getByText("AI-generated").count()) === 1);
+    check("seeded comments carry a Demo label", (await p2.locator("div.rounded-2xl [data-demo]").count()) === 2);
+    // Report on a post: hides it, toast, undo, persists
+    const q = p.locator("article", { hasText: "why does my stock drop the moment I buy it" });
+    await q.getByRole("button", { name: "Report post" }).click();
+    check("Report shows the toast and hides the post", (await p.getByText("Reported. Thanks for flagging it.").isVisible()) && (await p.locator("article", { hasText: "why does my stock drop the moment I buy it" }).count()) === 0);
+    check("report is stored as reported[id] = true", (await state(p)).reported?.p4 === true);
+    await p.getByRole("button", { name: "Undo" }).click();
+    check("Undo in the toast restores the post", (await p.locator("article", { hasText: "why does my stock drop the moment I buy it" }).count()) === 1 && !(await state(p)).reported?.p4);
+    await p.locator("article", { hasText: "why does my stock drop the moment I buy it" }).getByRole("button", { name: "Report post" }).click();
+    await p.reload();
+    await p.getByLabel("Post text").waitFor();
+    check("a reported post stays hidden after reload", (await p.locator("article", { hasText: "why does my stock drop the moment I buy it" }).count()) === 0);
+    // Report on a comment
+    const p2b = p.locator("article", { hasText: "bought TSLA after a +7% day" });
+    await p2b.getByRole("button", { name: /^Comments/ }).click();
+    await p2b.getByRole("button", { name: "Report comment" }).first().click();
+    check("Report on a comment hides that comment only", (await p.getByText("Respect for posting this").count()) === 0 && (await p2b.getByText("Great reflection").count()) === 1 && (await state(p)).reported?.["p2-0"] === true);
+    // leaderboard and challenges
+    await p.getByRole("tab", { name: "Leaderboard" }).click();
+    const rows = p.locator("ol > li", { has: p.locator("[data-demo]") });
+    check("every demo leaderboard row has a Demo label and your row has none", (await rows.count()) === 6 && (await p.locator("ol > li").filter({ hasText: "Alex" }).locator("[data-demo]").count()) === 0);
+    check("leaderboard states results are simulated", await p.getByTestId("sim-results-note").isVisible());
+    await p.getByRole("tab", { name: "Challenges" }).click();
+    const ch = await p.locator("main").innerText();
+    check("challenges show no participant numbers", !/\d[\d,]*\s+joined/i.test(ch) && !/1,284|3,410|\b742\b/.test(ch) && (await p.locator("section:has([data-demo])").count()) === 3);
+    await c.close();
+  }
+  {
+    // a non-OK /api/coach response is never shown as AI text
+    for (const [label, status, body] of [["500 HTML", 500, "<html><body>Internal Server Error</body></html>"], ["404 HTML", 404, "<!DOCTYPE html><html><body>404 This page could not be found</body></html>"]]) {
+      const c = await browser.newContext({ viewport: { width: 1440, height: 1000 }, storageState: storageNow });
+      const p = await c.newPage();
+      p.on("pageerror", (e) => errors.push(`[bad-${status}] pageerror: ${e.message}`)); // the mocked 4xx/5xx logs a console error by design
+      await p.route("**/api/coach", (route) => (route.request().method() === "POST" ? route.fulfill({ status, contentType: "text/html", body }) : route.continue()));
+      await p.goto(`${BASE}/coach`);
+      const before = (await state(p)).chat.length;
+      await p.getByLabel("Message Nova").fill("How do I figure out how many shares to buy?");
+      await p.getByRole("button", { name: "Send" }).click();
+      await waitFor(async () => {
+        const ch = (await state(p)).chat;
+        return ch.length >= before + 2 && ch[ch.length - 1].role === "assistant" && ch[ch.length - 1].content.length > 40;
+      }, 15000);
+      const last = (await state(p)).chat.at(-1).content;
+      check(`coach: ${label} is treated as offline mode, not shown as an answer`, last.length > 40 && !/<html|<!DOCTYPE|Internal Server Error|could not be found/i.test(last), last.slice(0, 80));
+      await p.goto(`${BASE}/community`);
+      await p.getByLabel("Post text").fill(`Bad response post ${status}: sizing a trade at 1% risk.`);
+      await p.getByRole("button", { name: "Post", exact: true }).click();
+      const nova = await waitFor(async () => {
+        const st = await state(p);
+        const id = st.posts[0]?.id;
+        return (st.comments[id] ?? []).some((cm) => cm.authorId === "u7");
+      }, 15000);
+      const st2 = await state(p);
+      const reply = (st2.comments[st2.posts[0].id] ?? []).find((cm) => cm.authorId === "u7")?.body ?? "";
+      check(`community: ${label} gets the canned Nova reply, not HTML`, nova && reply.includes("Love that you shared this") && !/<html|<!DOCTYPE|Internal Server Error|could not be found/i.test(reply), reply.slice(0, 80));
+      await c.close();
+    }
   }
 
   // ---------------- every page × theme × device ----------------

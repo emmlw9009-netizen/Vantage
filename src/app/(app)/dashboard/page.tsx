@@ -93,6 +93,7 @@ export default function Dashboard() {
                 <Delta ratio={(equity - STARTING_CASH) / STARTING_CASH} />
                 <span className="text-muted">since you started</span>
               </div>
+              <p className="mt-1 text-xs text-muted" data-testid="sim-results-note">Simulated results. Not real trades, and they don&apos;t include fees or slippage.</p>
             </div>
             <div className="rounded-2xl bg-panel-2 px-3 py-2 text-right text-xs">
               <div className="text-muted">S&P 500 (SPY) today</div>

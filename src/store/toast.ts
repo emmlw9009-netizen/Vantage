@@ -8,6 +8,8 @@ export interface Toast {
   body?: string;
   tone?: "default" | "good" | "warn" | "risk";
   href?: string;
+  /** Optional inline action, e.g. Undo. Running it dismisses the toast. */
+  action?: { label: string; run: () => void };
 }
 
 interface ToastState {

@@ -114,6 +114,9 @@ export function Toaster() {
           <div className="min-w-0 flex-1">
             <div className="text-sm font-semibold">{t.href ? <Link href={t.href}>{t.title}</Link> : t.title}</div>
             {t.body && <div className="text-sm text-ink-2">{t.body}</div>}
+            {t.action && (
+              <button onClick={() => { t.action?.run(); dismiss(t.id); }} className="mt-1 inline-flex min-h-10 items-center rounded-lg text-sm font-semibold text-accent underline underline-offset-2">{t.action.label}</button>
+            )}
           </div>
           <button onClick={() => dismiss(t.id)} className="grid size-8 place-items-center rounded-lg text-muted hover:text-ink" aria-label="Dismiss">
             <X className="size-4" />

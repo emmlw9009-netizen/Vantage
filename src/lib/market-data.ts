@@ -126,20 +126,36 @@ export interface NewsItem {
   lesson?: string; // lesson slug that explains this kind of event
 }
 
+// Headline templates. Every headline is a hypothetical market move for practice.
+// Rules: no allegations of wrongdoing, no specific corporate events (executive changes,
+// regulator action, recalls, deals, figures) about a real company. Keep it generic and
+// clearly simulated. Changing these templates drops older stored headlines on load.
 const POS: Record<Exclude<NewsKind, "macro">, string[]> = {
-  earnings: ["{n} beats earnings estimates as revenue jumps", "{n} posts record quarterly profit"],
-  analyst: ["Analyst upgrades {n} to Buy, raises target", "{n} added to a major bank's top-picks list"],
-  product: ["{n} unveils new product line to strong early demand", "{n} lands a multi-year enterprise contract"],
-  guidance: ["{n} raises full-year guidance", "{n} announces $20B share buyback"],
+  earnings: ["{n} shares rise after a stronger quarter in this simulation", "{n} shares jump on a better-than-expected quarter in this simulation"],
+  analyst: ["A simulated analyst upgrade lifts {n} shares", "{n} shares climb on a hypothetical analyst upgrade in this simulation"],
+  product: ["{n} shares gain on hypothetical product enthusiasm in this simulation", "{n} shares edge up on hypothetical positive product news in this simulation"],
+  guidance: ["{n} shares rise on a hypothetical brighter outlook in this simulation", "{n} shares gain on hypothetical stronger guidance in this simulation"],
 };
 const NEG: Record<Exclude<NewsKind, "macro">, string[]> = {
-  earnings: ["{n} misses on revenue; margins shrink", "{n} earnings disappoint as costs climb"],
-  analyst: ["Analyst downgrades {n} on valuation concerns", "{n} cut to Neutral after a strong run"],
-  product: ["{n} delays flagship launch", "Regulators open an inquiry into {n}"],
-  guidance: ["{n} cuts outlook citing weaker demand", "{n} CFO departs unexpectedly"],
+  earnings: ["{n} shares fall after a weaker quarter in this simulation", "{n} shares slip on a hypothetical earnings disappointment in this simulation"],
+  analyst: ["A simulated analyst downgrade weighs on {n} shares", "{n} shares dip on a hypothetical valuation worry in this simulation"],
+  product: ["{n} shares slide on hypothetical product-news worries in this simulation", "{n} shares fall on hypothetical cautious product news in this simulation"],
+  guidance: ["{n} shares drop on a hypothetical softer outlook in this simulation", "{n} shares fall on hypothetical weaker guidance in this simulation"],
 };
-const MACRO_POS = ["Inflation cools more than expected; stocks rally", "Fed signals rate cuts ahead", "Jobs report shows a steady, healthy economy"];
-const MACRO_NEG = ["Hot inflation print sparks rate fears", "Bond yields spike; growth stocks slide", "Weak manufacturing data rattles markets"];
+const MACRO_POS = ["Hypothetical inflation data comes in cooler, and stocks rally in this simulation", "Hypothetical rate-cut hopes lift stocks in this simulation", "Hypothetical jobs data points to a steady economy in this simulation"];
+const MACRO_NEG = ["Hypothetical hot inflation data sparks rate fears in this simulation", "A hypothetical bond-yield spike pressures growth stocks in this simulation", "Hypothetical weak manufacturing data rattles stocks in this simulation"];
+
+/** Every headline the simulator can currently produce. Used to drop stale persisted headlines. */
+const VALID_HEADLINES: Set<string> = (() => {
+  const set = new Set<string>([...MACRO_POS, ...MACRO_NEG]);
+  const templates = [...Object.values(POS).flat(), ...Object.values(NEG).flat()];
+  for (const t of TICKERS) for (const tpl of templates) set.add(tpl.replace("{n}", t.name));
+  return set;
+})();
+
+export function isCurrentHeadline(headline: unknown): boolean {
+  return typeof headline === "string" && VALID_HEADLINES.has(headline);
+}
 
 export const NEWS_LESSON: Record<NewsKind, string> = {
   earnings: "earnings-and-eps",
