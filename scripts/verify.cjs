@@ -139,7 +139,7 @@ async function consent(page) {
 
   // limit order: buy limit above market fills on next tick
   await page.goto(`${BASE}/markets/KO`);
-  await page.getByRole("tab", { name: "Limit" }).click();
+  await page.getByRole("radio", { name: "Limit" }).click();
   const ko = await price(page, "KO");
   await page.locator("#trigger").fill((ko * 1.05).toFixed(2));
   await page.locator("#qty").fill("10");

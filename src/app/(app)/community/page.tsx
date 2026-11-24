@@ -56,7 +56,7 @@ export default function Community() {
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Community</h1>
           <p className="mt-1 text-sm text-ink-2">Share ideas, post lessons, compete on discipline, not just profit.</p>
         </div>
-        <Segmented size="md" value={tab} onChange={setTab} options={[{ value: "feed", label: "Feed" }, { value: "leaders", label: "Leaderboard" }, { value: "challenges", label: "Challenges" }]} />
+        <Segmented kind="tabs" label="Community sections" size="md" value={tab} onChange={setTab} options={[{ value: "feed", label: "Feed" }, { value: "leaders", label: "Leaderboard" }, { value: "challenges", label: "Challenges" }]} />
       </div>
       <div className="flex items-center gap-2 rounded-2xl border border-dashed border-line px-4 py-2.5 text-xs text-muted">
         <Users className="size-4 shrink-0" /> <span>Preview community. Members, posts, comments and leaderboard rows marked Demo are fictional sample content. Your posts are yours, and Nova&apos;s replies are marked AI-generated.</span>

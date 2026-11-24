@@ -102,13 +102,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
         seenTrades.current.add(t.id);
         if (t.role === "stop-loss" || t.role === "take-profit") {
           push({
-            title: t.role === "stop-loss" ? `Stop-loss filled · ${t.symbol}` : `Take-profit filled · ${t.symbol}`,
-            body: `Sold ${t.qty} @ ${usd(t.price)} · ${t.realizedPnl && t.realizedPnl >= 0 ? "+" : ""}${usd(t.realizedPnl ?? 0)}`,
-            tone: t.role === "take-profit" ? "good" : "warn",
+            title: t.role === "stop-loss" ? "Stop-loss filled" : "Take-profit filled",
+            body: `Sold ${t.qty} ${t.symbol} at ${usd(t.price)}. Realized ${(t.realizedPnl ?? 0) >= 0 ? "+" : "−"}${usd(Math.abs(t.realizedPnl ?? 0))}.`,
+            tone: "default",
             href: "/dashboard",
           });
         } else if (t.role === "entry" && t.orderId && useApp.getState().orders.find((o) => o.id === t.orderId)?.type !== "market") {
-          push({ title: `Limit order filled · ${t.symbol}`, body: `Bought ${t.qty} @ ${usd(t.price)}`, tone: "good" });
+          push({ title: "Limit order filled", body: `Bought ${t.qty} ${t.symbol} at ${usd(t.price)}.`, tone: "default" });
         }
       }
     }
@@ -128,8 +128,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
     const xp = done.reduce((a, m) => a + m.xp, 0);
     push(
       done.length === 1
-        ? { title: `Mission complete: ${done[0].title}`, body: `+${xp} XP`, tone: "good", href: "/learn" }
-        : { title: `${done.length} missions complete`, body: `${done.map((m) => m.title).join(" · ")} · +${xp} XP`, tone: "good", href: "/learn" },
+        ? { title: `Mission done: ${done[0].title}`, body: `${xp} XP added.`, tone: "good", href: "/learn" }
+        : { title: `${done.length} missions done`, body: `${done.map((m) => m.title).join(", ")}. ${xp} XP added.`, tone: "good", href: "/learn" },
     );
   }, [trades, orders, positions, chat, posts, missions, push]);
 

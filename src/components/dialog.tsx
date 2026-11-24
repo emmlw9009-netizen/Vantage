@@ -3,6 +3,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/format";
+import * as m from "motion/react-m";
+import { useReducedMotion } from "motion/react";
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
@@ -16,6 +18,7 @@ export function Dialog({ title, ariaLabel, children, onClose, className, z = "z-
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const [host, setHost] = useState<HTMLElement | null>(null);
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     const el = document.createElement("div");
@@ -85,15 +88,26 @@ export function Dialog({ title, ariaLabel, children, onClose, className, z = "z-
 
   if (!host) return null;
   return createPortal(
-    <div className={cn("fixed inset-0 grid place-items-center overflow-y-auto bg-ink/50 p-4 backdrop-blur-sm", z)}>
-      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined} aria-label={title ? undefined : ariaLabel} tabIndex={-1} className={cn("card w-full max-w-lg p-6 outline-none sm:p-8", className)}>
+    <div className={cn("fixed inset-0 grid place-items-center overflow-y-auto p-4", z)} style={{ background: "var(--scrim)" }}>
+      <m.div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        aria-label={title ? undefined : ariaLabel}
+        tabIndex={-1}
+        initial={reduce ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.12 }}
+        className={cn("float relative w-full max-w-lg p-5 outline-none sm:p-6", className)}
+      >
         {title && (
-          <h2 id={titleId} className="font-display text-2xl font-bold leading-tight sm:text-3xl">
+          <h2 id={titleId} className="t-h2">
             {title}
           </h2>
         )}
         {children}
-      </div>
+      </m.div>
     </div>,
     host,
   );

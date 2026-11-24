@@ -1,11 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import "@fontsource/barlow/400.css";
-import "@fontsource/barlow/500.css";
-import "@fontsource/barlow/600.css";
-import "@fontsource/barlow/700.css";
-import "@fontsource/barlow-semi-condensed/600.css";
-import "@fontsource/barlow-semi-condensed/700.css";
-import "@fontsource-variable/source-serif-4";
+import "@fontsource-variable/archivo/wdth.css";
+import "@fontsource-variable/literata/opsz.css";
+import "@fontsource-variable/literata/opsz-italic.css";
 import { BRAND } from "@/lib/brand";
 import "./globals.css";
 
@@ -16,8 +12,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0b1726" },
-    { media: "(prefers-color-scheme: light)", color: "#edf1f3" },
+    { media: "(prefers-color-scheme: dark)", color: "#131c17" },
+    { media: "(prefers-color-scheme: light)", color: "#edf1ea" },
   ],
 };
 
