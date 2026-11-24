@@ -31,7 +31,7 @@ npm run build          # production build (runs tsc + eslint)
 npm start              # serve the build on :3000
 npm run verify         # E2E verification loop against BASE_URL (default http://localhost:3000)
 ```
-`npm run verify` needs a running server (`npm run build && npm start`). It exits non-zero on any failure and writes screenshots (every page × dark/light × desktop/phone) to `SHOTS` (default `./verify-shots`). **If you rebuild, restart the server** (`pkill -f next-server`); a stale server serves old chunk hashes and every page breaks with 400s.
+`npm run verify` needs a running server (`npm run build && npm start`). It exits non-zero on any failure and writes screenshots (every page × dark/light × desktop/phone) to `SHOTS` (default `./verify-shots`). **If you rebuild, restart the server** (`fuser -k 3000/tcp`; never `pkill -f next-server`, which kills other agents' servers); a stale server serves old chunk hashes and every page breaks with 400s.
 
 ## Architecture map
 
