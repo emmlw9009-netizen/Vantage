@@ -70,7 +70,7 @@ const FOOTER_LINKS = [
 function LegalFooter({ className }: { className?: string }) {
   return (
     <div className={className}>
-      <p className="text-xs leading-snug text-muted">{FOOTER_DISCLAIMER}</p>
+      <p className="text-xs leading-snug text-muted">{FOOTER_DISCLAIMER} Not affiliated with or endorsed by any company named.</p>
       <ul className="mt-1 flex flex-wrap gap-x-3" aria-label="Legal">
         {FOOTER_LINKS.map((l) => (
           <li key={l.href}>
@@ -292,6 +292,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </header>
           <main className="mx-auto w-full max-w-[1280px] flex-1 px-4 pb-28 pt-6 sm:px-6 md:pb-12">
             {hydrated ? children : <ShellSkeleton />}
+            <footer className="mt-10 border-t border-line pt-4 md:hidden">
+              <LegalFooter />
+            </footer>
           </main>
         </div>
 

@@ -14,7 +14,7 @@ export default function Terms() {
           {BRAND.name} is an educational simulator. You trade with pretend money in a market that is generated, not real. Nothing here is investment, financial, tax or legal advice, and {BRAND.name} cannot place real trades.
         </p>
         <p>
-          You must be {LEGAL.minimumAge} or older. Nova, our coach, is an AI and can be wrong. These terms include an arbitration clause and a class-action waiver (section 19), which you can opt out of within 30 days. Paid plans, if you choose one, renew automatically until you cancel (section 15).
+          You must be {LEGAL.minimumAge} or older. Nova, our coach, is an AI and can be wrong. These terms include an arbitration clause and a class-action waiver (section 19), which you can opt out of within 30 days. If paid plans are offered in future and you choose one, it will renew automatically until you cancel (section 15). Today the Service is free.
         </p>
       </Summary>
 
@@ -68,7 +68,7 @@ export default function Terms() {
       <S id="ai" title="7. AI features">
         <ul>
           <li>Nova’s replies, trade reviews and other AI-generated content may be inaccurate, incomplete, out of date or unsuitable for you. We do not verify them. Do not rely on them for real financial decisions.</li>
-          <li>When the AI coach is switched on, your simulated portfolio, trades, display name and chat messages are sent to our AI provider (Anthropic) to generate replies. The <Link href="/privacy">Privacy policy</Link> explains this. When the AI coach is not configured, Nova runs as a local rules engine and nothing is sent.</li>
+          <li>Only when the AI coach is switched on, and only after you have seen and acknowledged an in-app notice, your simulated portfolio, trades, display name and chat messages are sent to our AI provider (Anthropic) to generate replies. The <Link href="/privacy">Privacy policy</Link> explains this. Otherwise Nova runs as a local rules engine in your browser (labelled “Nova, rules engine”), and no portfolio, trade, name or chat data is sent anywhere, including to our own server.</li>
           <li>Do not try to misuse the AI: for example, by trying to extract its instructions, generate unlawful, harassing or deceptive content, or use it to bypass the rules in section 9.</li>
         </ul>
       </S>
@@ -110,7 +110,7 @@ export default function Terms() {
 
       <S id="ip" title="12. Our intellectual property">
         <p>
-          The Service, including its software, design, course content, lessons, quizzes, scores, rule engine, text and graphics, belongs to us or our licensors and is protected by intellectual property laws. We give you a limited, personal, non-exclusive, non-transferable, revocable license to use the Service for your own learning. “{BRAND.name}” and our logos are our marks. You may not use them without our written permission.
+          The Service, including its software, design, course content, lessons, quizzes, scores, rule engine, text and graphics, belongs to us or our licensors and is protected by intellectual property laws. We give you a limited, personal, non-exclusive, non-transferable, revocable license to use the Service for your own learning. We use “{BRAND.name}” and our logo as our name and branding. This agreement gives you no right to use them, and you may not use them without our written permission.
         </p>
       </S>
 
@@ -128,23 +128,19 @@ export default function Terms() {
 
       <S id="paid-plans" title="15. Paid plans">
         <p>
-          The Service has a Free plan and may offer paid plans. Plans and prices are shown in the app and on the pricing page. At the time of writing:
+          Today the Service is free and there is nothing to buy. This section describes the terms that will apply <strong>when paid plans are offered</strong>. We will show them next to every purchase button, before you pay, and we will tell you in the app before paid plans start.
         </p>
         <ul>
-          <li><strong>Free:</strong> $0. Includes a limit of 10 trades per day and selected lessons and features.</li>
-          <li><strong>Premium:</strong> $30 per month.</li>
-          <li><strong>Elite:</strong> $60 per month.</li>
-        </ul>
-        <ul>
-          <li><strong>Automatic renewal.</strong> Paid plans are billed monthly and renew automatically each month until you cancel. We will show these renewal terms next to every purchase button, before you pay.</li>
-          <li><strong>How to cancel.</strong> You can cancel online at any time in Settings, in one step, which is as easy as signing up. You do not need to contact us.</li>
-          <li><strong>When cancellation takes effect.</strong> Cancelling stops future renewals. Your paid features continue until the end of the period you have already paid for, then your account returns to the Free plan.</li>
+          <li><strong>Plans and prices.</strong> We expect to offer a Free plan ($0, including a limit of 10 trades per day), Premium ($30 per month) and Elite ($60 per month). Plans and prices will be shown in the app before you buy. They may change before launch.</li>
+          <li><strong>Automatic renewal.</strong> Paid plans will be billed monthly and renew automatically each month until you cancel.</li>
+          <li><strong>How to cancel.</strong> You will be able to cancel online at any time in Settings, in one step, which will be as easy as signing up. You will not need to contact us.</li>
+          <li><strong>When cancellation takes effect.</strong> Cancelling stops future renewals. Paid features continue until the end of the period you have already paid for, then your account returns to the Free plan.</li>
           <li><strong>Refunds.</strong> {LEGAL.refundPolicy}</li>
-          <li><strong>Price changes.</strong> If we change the price of a plan, we will tell you in advance (by email or in the app) and the new price applies from your next renewal after the notice. You can cancel before then.</li>
+          <li><strong>Price changes.</strong> If we change the price of a plan, we will tell you in advance (by email or in the app) and the new price will apply from your next renewal after the notice. You can cancel before then.</li>
           <li><strong>Taxes.</strong> Prices may exclude taxes. Where we are required to collect sales tax, VAT or similar taxes, they will be shown at checkout.</li>
-          <li><strong>Test mode.</strong> While payments are not live, upgrading runs in a clearly labelled test mode. No payment is taken and no card is charged. We will tell you before real billing begins, and you will have to choose to start it.</li>
+          <li><strong>Test mode.</strong> While payments are not live, any plan preview will run in a clearly labelled test mode. No payment is taken and no card is charged. Real billing will start only after we tell you and you choose to start it.</li>
         </ul>
-        <p>Payments, when live, are processed by a third-party payment provider (currently planned: Stripe). We do not store your full card number.</p>
+        <p>When payments are live, they will be processed by a third-party payment provider (planned: Stripe). We will not store your full card number.</p>
       </S>
 
       <S id="warranties" title="16. Disclaimer of warranties">

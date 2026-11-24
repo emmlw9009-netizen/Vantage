@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/store/app";
 import { LEGAL } from "@/lib/legal";
-import { getCoachMode } from "@/lib/ai-notice";
+import { AI_CHECK_EVENT, probeCoachMode } from "@/lib/ai-notice";
 import { Dialog } from "./dialog";
 import { useHydrated } from "./providers";
 
@@ -18,9 +18,29 @@ export function AiNotice() {
   const [ai, setAi] = useState(false);
   const need = hydrated && onboarded && consented && !seen;
 
+  const check = useCallback(() => {
+    probeCoachMode().then((m) => {
+      if (m === "ai") setAi(true);
+      return m;
+    });
+  }, []);
+
   useEffect(() => {
-    if (need) getCoachMode().then((m) => setAi(m === "ai"));
-  }, [need]);
+    if (!need) return;
+    check();
+    // A failed probe is not cached: keep asking until the server gives a definite answer.
+    const id = setInterval(() => {
+      probeCoachMode().then((m) => {
+        if (m === "ai") setAi(true);
+        if (m !== "unknown") clearInterval(id);
+      });
+    }, 4000);
+    window.addEventListener(AI_CHECK_EVENT, check);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener(AI_CHECK_EVENT, check);
+    };
+  }, [need, check]);
 
   if (!need || !ai) return null;
   return (

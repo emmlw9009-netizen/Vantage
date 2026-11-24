@@ -14,7 +14,7 @@ export default function Privacy() {
           Today there are no accounts. Your simulated portfolio, trades, progress, profile name and settings are saved in your own browser (localStorage) and stay on your device. We do not run analytics or advertising trackers, and we do not sell or share your personal information.
         </p>
         <p>
-          The one thing that can leave your device is what you send to the AI coach, and only when the AI coach is switched on: your display name, simulated portfolio, trades and chat messages go to Anthropic, our AI provider. You can export or delete everything in Settings.
+          The one thing that can leave your device is what you send to the AI coach, and only when the AI coach is switched on and you have acknowledged the in-app notice: your display name, simulated portfolio, trades and chat messages go to Anthropic, our AI provider. Otherwise none of it is sent anywhere. You can export or delete everything in Settings.
         </p>
       </Summary>
 
@@ -31,7 +31,7 @@ export default function Privacy() {
         </p>
         <h3>Sent to our AI provider, when the AI coach is on</h3>
         <p>
-          If the AI coach is switched on, then when you chat with Nova, request a trade review, or post in the community and Nova replies, the app sends the relevant request to our server, which passes it to Anthropic. This includes your display name, a snapshot of your simulated portfolio and trades, your progress, and the text you wrote. We show you a notice before this happens for the first time. If the AI coach is not switched on, Nova runs as a rules engine in your browser. The app may still send a request to our own server, but without an AI provider configured the server does not read, store or forward it, and nothing reaches an AI provider.
+          If the AI coach is switched on, then when you chat with Nova, request a trade review, or post in the community and Nova replies, the app sends the relevant request to our server, which passes it to Anthropic. This includes your display name, a snapshot of your simulated portfolio and trades, your progress, and the text you wrote. We show you a notice before this happens for the first time. If the AI coach is not switched on, or if the app cannot confirm that it is, Nova runs as a rules engine in your browser and the app sends no portfolio, trade, name or chat data anywhere, including to our own server. (The app does ask our server whether the AI coach is switched on. That request contains none of your data.) Our server also refuses to forward any request to the AI provider unless the app confirms you have acknowledged the notice.
         </p>
         <h3>Server and hosting logs</h3>
         <p>

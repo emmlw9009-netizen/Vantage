@@ -8,6 +8,7 @@ export function GET() {
 }
 
 interface Body {
+  aiNoticeAck?: boolean;
   messages: { role: "user" | "assistant"; content: string }[];
   context: string;
 }
@@ -17,6 +18,8 @@ export async function POST(req: Request) {
     return Response.json({ offline: true }, { status: 200, headers: { "x-coach-mode": "offline" } });
   }
   const body = (await req.json()) as Body;
+  // Defence in depth: refuse to forward user data to the AI provider unless the client confirms the data notice was acknowledged.
+  if (body.aiNoticeAck !== true) return Response.json({ error: "ai_notice_required" }, { status: 400 });
   const messages = (body.messages ?? [])
     .filter((m) => m.content?.trim())
     .slice(-20)

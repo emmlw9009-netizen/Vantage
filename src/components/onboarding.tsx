@@ -6,6 +6,7 @@ import { cn } from "@/lib/format";
 import { BRAND } from "@/lib/brand";
 import { Avatar } from "./ui";
 import { ConsentCheckbox, consentRecord } from "./consent";
+import { Dialog } from "./dialog";
 
 const EXP: { v: Profile["experience"]; label: string; sub: string }[] = [
   { v: "new", label: "Brand new", sub: "I've never bought a stock" },
@@ -33,8 +34,8 @@ export function Onboarding() {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-ink/50 p-4 backdrop-blur-sm">
-      <div role="dialog" aria-modal="true" aria-label="Welcome" className="card w-full max-w-lg p-6 sm:p-8">
+    <Dialog ariaLabel={`Welcome to ${BRAND.name}`} z="z-[60]">
+      <div>
         <div className="mb-6 flex items-center gap-2 text-sm font-medium text-ink-2">
           <Avatar id="u7" size={24} /> Coach Nova
           <span className="ml-auto text-sm text-muted">Step {step + 1} of 3</span>
@@ -78,7 +79,7 @@ export function Onboarding() {
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }
 

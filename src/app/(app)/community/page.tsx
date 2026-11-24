@@ -10,7 +10,7 @@ import { TICKER_MAP } from "@/lib/market-data";
 import { buildCoachContext } from "@/lib/coach-context";
 import { levelFor } from "@/lib/course";
 import { cn, pct, timeAgo } from "@/lib/format";
-import { aiAllowed } from "@/lib/ai-notice";
+import { aiGate } from "@/lib/ai-notice";
 import { useToast } from "@/store/toast";
 import { Avatar, Delta, Pill, Segmented, SectionTitle } from "@/components/ui";
 
@@ -25,11 +25,13 @@ const KIND_LABEL: Record<string, string> = { idea: "Trade idea", question: "Ques
 
 async function novaReply(postBody: string): Promise<string> {
   try {
-    if (!(await aiAllowed())) throw new Error("notice not yet seen");
+    // Only send the post text to the AI when AI mode is confirmed and the notice was acknowledged.
+    if ((await aiGate()) !== "send") throw new Error("not sending");
     const res = await fetch("/api/coach", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
+        aiNoticeAck: true,
         context: buildCoachContext(),
         messages: [{ role: "user", content: `I just posted this in the ${BRAND.name} community feed:\n\n"${postBody}"\n\nReply as a public comment from Coach Nova: 2–3 warm, specific sentences. If there's a risk-management lesson in it, name it and link the relevant lesson. No preamble.` }],
       }),

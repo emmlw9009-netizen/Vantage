@@ -5,7 +5,9 @@ export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   if (!hasClaudeCredentials()) return Response.json({ offline: true });
-  const payload = await req.json();
+  const { aiNoticeAck, ...payload } = await req.json();
+  // Defence in depth: never forward data to the AI provider without the client's confirmation that the data notice was acknowledged.
+  if (aiNoticeAck !== true) return Response.json({ error: "ai_notice_required" }, { status: 400 });
   const client = new Anthropic();
 
   try {

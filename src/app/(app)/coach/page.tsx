@@ -10,7 +10,7 @@ import { LESSON_MAP } from "@/lib/course";
 import { Markdown } from "@/components/ui";
 import { cn, usd } from "@/lib/format";
 import Link from "next/link";
-import { aiAllowed } from "@/lib/ai-notice";
+import { aiGate } from "@/lib/ai-notice";
 
 const STARTERS = [
   "Review my portfolio. What's my biggest risk right now?",
@@ -64,7 +64,8 @@ function Coach() {
   const send = async (text: string) => {
     const q = text.trim();
     if (!q || busy) return;
-    if (!(await aiAllowed())) return; // the AI data notice is showing; keep the draft
+    const gate = await aiGate();
+    if (gate === "wait") return; // the AI data notice is showing; keep the draft
     setInput("");
     setBusy(true);
     pushChat({ role: "user", content: q });
@@ -72,10 +73,15 @@ function Coach() {
     const replyId = pushChat({ role: "assistant", content: "" });
     const context = buildCoachContext();
     try {
+      if (gate === "offline") {
+        // AI mode not confirmed: answer locally and send nothing anywhere.
+        updateChat(replyId, offlineAnswer(q, context));
+        return;
+      }
       const res = await fetch("/api/coach", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ messages: history, context }),
+        body: JSON.stringify({ aiNoticeAck: true, messages: history, context }),
       });
       // a non-OK response (404 page, 500) or an HTML body is never shown as AI text: fall back to the offline answer
       const ct = res.headers.get("content-type") ?? "";
@@ -177,10 +183,12 @@ function Coach() {
             </button>
           </div>
           <p className="mt-2 text-center text-xs text-muted">
-            {mode !== "offline" ? (
+            {mode === "ai" ? (
               <>Nova is an AI coach. It can be wrong. Not investment advice. Your portfolio, trades, name and messages are sent to our AI provider (<Link href="/privacy#ai" className="underline underline-offset-2">privacy policy</Link>).</>
+            ) : mode === "offline" ? (
+              <>Educational coaching on a simulated market. Not investment advice. What you write here is not sent anywhere.</>
             ) : (
-              <>Educational coaching on a simulated market. Not investment advice. No AI provider receives what you write here.</>
+              <>Educational coaching on a simulated market. Not investment advice.</>
             )}
           </p>
         </form>

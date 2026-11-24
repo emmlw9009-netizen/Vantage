@@ -2,25 +2,36 @@
 
 import { useApp } from "@/store/app";
 
-export type CoachMode = "ai" | "offline";
-let modeP: Promise<CoachMode> | null = null;
-
-/** Asks the server once whether the AI coach is configured. Any failure counts as offline (nothing is sent). */
-export function getCoachMode(): Promise<CoachMode> {
-  if (!modeP) {
-    modeP = fetch("/api/coach")
-      .then((r) => r.json())
-      .then((d) => (d?.mode === "ai" ? "ai" : "offline") as CoachMode)
-      .catch(() => "offline" as CoachMode);
-  }
-  return modeP;
-}
+export type CoachMode = "ai" | "offline" | "unknown";
 
 /**
- * May the app send data to the AI provider right now?
- * Offline mode sends nothing, so it is always fine. In AI mode the user must have seen the data notice.
+ * Asks the server whether the AI coach is configured. Only a successful GET answering mode "ai" counts as AI.
+ * A failed or malformed probe is "unknown" and is never cached: the next attempt probes again.
  */
-export async function aiAllowed(): Promise<boolean> {
-  if (useApp.getState().profile.aiNoticeAt) return true;
-  return (await getCoachMode()) !== "ai";
+export async function probeCoachMode(): Promise<CoachMode> {
+  try {
+    const r = await fetch("/api/coach", { cache: "no-store" });
+    if (!r.ok) return "unknown";
+    const d = await r.json();
+    return d?.mode === "ai" ? "ai" : d?.mode === "offline" ? "offline" : "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+/** send: the AI provider may receive data. offline: use local rules, send nothing. wait: AI is on but the user has not seen the notice yet. */
+export type AiGate = "send" | "offline" | "wait";
+
+export const AI_CHECK_EVENT = "vantage:ai-check";
+
+/**
+ * The only way client code may decide to POST user data to /api/coach or /api/review.
+ * Data is sent only when AI mode is positively confirmed AND the user has acknowledged the data notice.
+ */
+export async function aiGate(): Promise<AiGate> {
+  const mode = await probeCoachMode();
+  if (mode !== "ai") return "offline";
+  if (useApp.getState().profile.aiNoticeAt) return "send";
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(AI_CHECK_EVENT));
+  return "wait";
 }

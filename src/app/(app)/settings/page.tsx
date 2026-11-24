@@ -35,6 +35,8 @@ function useTheme() {
   return [theme, choose] as const;
 }
 
+const THEMES: readonly (readonly [Theme, string])[] = [["system", "Match my device"], ["light", "Light"], ["dark", "Dark"]];
+
 const btn = "inline-flex h-11 items-center rounded-[10px] border border-line px-4 text-sm font-semibold hover:bg-panel-2";
 
 export default function SettingsPage() {
@@ -88,7 +90,7 @@ export default function SettingsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 p-5">
           <div className="min-w-0 max-w-md">
             <h3 className="font-medium">Delete all my data</h3>
-            <p className="text-sm text-ink-2">Permanently erases everything saved in this browser, including your profile and your agreement record, and takes you back to the start. This cannot be undone.</p>
+            <p className="text-sm text-ink-2">Permanently erases everything saved in this browser, including your profile and your agreement record, and takes you back to the start. This cannot be undone. When the app reloads it creates a fresh set of simulated prices, which holds no personal data.</p>
           </div>
           <button onClick={() => setDialog("delete")} className={cn(btn, "border-down text-down hover:bg-risk-bg")}>
             Delete all my data
@@ -111,12 +113,22 @@ export default function SettingsPage() {
       <section className="card p-5" aria-labelledby="theme-h">
         <h2 id="theme-h" className="font-display text-xl font-semibold">Appearance</h2>
         <div role="radiogroup" aria-label="Theme" className="mt-3 flex flex-wrap gap-2">
-          {([["system", "Match my device"], ["light", "Light"], ["dark", "Dark"]] as const).map(([v, label]) => (
+          {THEMES.map(([v, label], i) => (
             <button
               key={v}
+              id={`theme-${v}`}
               role="radio"
               aria-checked={theme === v}
+              tabIndex={theme === v ? 0 : -1}
               onClick={() => setTheme(v)}
+              onKeyDown={(e) => {
+                const d = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+                if (!d) return;
+                e.preventDefault();
+                const next = THEMES[(i + d + THEMES.length) % THEMES.length][0];
+                setTheme(next);
+                document.getElementById(`theme-${next}`)?.focus();
+              }}
               className={cn("h-11 rounded-[10px] border px-4 text-sm font-medium", theme === v ? "border-accent bg-accent-soft ring-1 ring-accent" : "border-line hover:bg-panel-2")}
             >
               {label}

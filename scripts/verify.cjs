@@ -64,6 +64,9 @@ async function consent(page) {
   // ---------------- core flows (desktop, dark) ----------------
   console.log("\nCore flows");
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: "dark" });
+  await ctx.addInitScript(() => {
+    window.__VANTAGE_TEST__ = true; // enables the test-only price driver (never set for real users)
+  });
   const page = await ctx.newPage();
   watch(page, "desktop");
 
@@ -148,10 +151,14 @@ async function consent(page) {
   await page.goto(`${BASE}/markets/AMD`);
   const amd = await price(page, "AMD");
   await page.locator("#qty").fill("5");
-  await page.locator("#stop").fill((amd * 0.9985).toFixed(2));
+  const amdStop = amd * 0.95;
+  await page.locator("#stop").fill(amdStop.toFixed(2));
   await page.locator("#target").fill((amd * 1.5).toFixed(2));
   await page.getByRole("button", { name: /^Buy 5 AMD$/ }).click();
-  const stopped = await waitFor(async () => (await state(page)).trades.some((t) => t.symbol === "AMD" && t.role === "stop-loss"), 90000, 1000);
+  await waitFor(async () => !!(await state(page)).positions.AMD, 10000, 250);
+  // Deterministic: drive the price through the test hook to just under the stop (the real tick path is covered by the limit-order check above).
+  await page.evaluate((px) => window.__vantageTest.setPrices({ AMD: px }), amdStop * 0.99);
+  const stopped = await waitFor(async () => (await state(page)).trades.some((t) => t.symbol === "AMD" && t.role === "stop-loss"), 10000, 250);
   s = await state(page);
   check("stop-loss triggers automatically", stopped);
   if (stopped) {
@@ -321,6 +328,80 @@ async function consent(page) {
     await c.close();
   }
   {
+    // C1: first-run keyboard cannot reach or use anything behind the consent modal
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const p = await c.newPage();
+    c.on("page", (np) => np !== p && np.close().catch(() => {})); // consent links open new tabs
+    watch(p, "keyboard-trap");
+    await p.goto(`${BASE}/markets/NVDA`);
+    await p.getByLabel(/I.m 18 or older/).waitFor();
+    let escaped = 0;
+    for (let i = 0; i < 90; i++) {
+      await p.keyboard.press("Tab");
+      const where = await p.evaluate(() => {
+        const a = document.activeElement;
+        return { inside: !!a?.closest('[role="dialog"]'), tag: a?.tagName, link: a?.tagName === "A" };
+      });
+      if (!where.inside) escaped++;
+      if (!where.link) await p.keyboard.press("Enter");
+    }
+    const st = await state(p);
+    check("first-run: Tab never leaves the consent dialog (90 tabs)", escaped === 0, `${escaped} escapes`);
+    check("first-run: Tab and Enter cannot place an order or reach app controls", !st || ((st.trades ?? []).length === 0 && (st.orders ?? []).length === 0 && Object.keys(st.positions ?? {}).length === 0 && !st.profile?.onboarded), JSON.stringify({ trades: st?.trades?.length, onboarded: st?.profile?.onboarded }));
+    check("first-run: app behind the dialog is inert", await p.evaluate(() => [...document.body.children].filter((el) => !el.hasAttribute("data-dialog-host") && el.tagName !== "SCRIPT" && el.querySelector("aside, main")).every((el) => el.hasAttribute("inert"))));
+    await c.close();
+  }
+  {
+    // privacy promise: with the probe failing, nothing is POSTed to the AI routes
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+    const p = await c.newPage();
+    p.on("pageerror", (e) => errors.push(`[probe-fails] pageerror: ${e.message}`)); // the aborted probe always logs a network console error
+    const posts = [];
+    p.on("request", (r) => r.method() === "POST" && /\/api\/(coach|review)/.test(r.url()) && posts.push(r.url()));
+    await p.route("**/api/coach", (route) => (route.request().method() === "GET" ? route.abort() : route.continue()));
+    await p.goto(`${BASE}/coach`);
+    const chatBefore = (await state(p)).chat.length;
+    await p.getByLabel("Message Nova").fill("How do I figure out how many shares to buy?");
+    await p.getByLabel("Message Nova").press("Enter");
+    const replied = await waitFor(async () => {
+      const ch = (await state(p)).chat;
+      return ch.length >= chatBefore + 2 && ch[ch.length - 1].role === "assistant" && ch[ch.length - 1].content.length > 20;
+    }, 20000);
+    check("probe failure: coach still answers locally", replied);
+    await p.goto(`${BASE}/markets/KO`);
+    await p.getByRole("button", { name: /^Buy \d+ KO$/ }).click();
+    await waitFor(async () => (await state(p)).trades.some((t) => t.symbol === "KO" && t.reviewStatus === "done"), 15000);
+    await p.goto(`${BASE}/community`);
+    await p.getByLabel("Post text").fill("Probe failure test post.");
+    await p.getByRole("button", { name: "Post", exact: true }).click();
+    await waitFor(async () => { const st2 = await state(p); const id = st2.posts[0]?.id; return !!id && (st2.comments[id] ?? []).some((cm) => cm.authorId === "u7"); }, 20000);
+    check("probe failure: no POST to /api/coach or /api/review (chat, review, Nova reply)", posts.length === 0, posts.join(","));
+    await c.close();
+  }
+  {
+    // AI mode without the notice: the notice shows before any POST; after it, POSTs carry the acknowledgement
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+    const p = await c.newPage();
+    watch(p, "ai-gate");
+    const posts = [];
+    await p.route("**/api/coach", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ json: { mode: "ai" } });
+      posts.push(route.request().postDataJSON());
+      return route.fulfill({ status: 200, contentType: "text/plain", body: "Mock AI reply for verification of the notice gate." });
+    });
+    await p.goto(`${BASE}/coach`);
+    const dlg = p.getByRole("dialog", { name: "Nova uses an AI service" });
+    await dlg.waitFor({ timeout: 8000 });
+    await p.waitForTimeout(1200);
+    check("AI mode, no notice yet: the notice is shown and nothing has been POSTed", (await dlg.isVisible()) && posts.length === 0);
+    await dlg.getByRole("button", { name: "I understand" }).click();
+    await p.getByLabel("Message Nova").fill("How do I figure out how many shares to buy?");
+    await p.getByLabel("Message Nova").press("Enter");
+    await waitFor(async () => posts.length > 0, 8000, 250);
+    check("after the notice, the POST carries aiNoticeAck and the reply shows", posts.length === 1 && posts[0].aiNoticeAck === true && (await p.getByText("Mock AI reply for verification").first().isVisible().catch(() => false)));
+    await c.close();
+  }
+  {
     // settings: export, theme, reset, delete
     const c = await browser.newContext({ viewport: { width: 1440, height: 1000 }, storageState: storageNow, acceptDownloads: true });
     const p = await c.newPage();
@@ -331,13 +412,13 @@ async function consent(page) {
     const [dl] = await Promise.all([p.waitForEvent("download"), p.getByRole("button", { name: "Export my data" }).click()]);
     const file = await dl.path();
     const json = JSON.parse(fs.readFileSync(file, "utf8"));
-    check("export downloads a timestamped JSON of both stores", /^vantage-data-\d{8}-\d{6}\.json$/.test(dl.suggestedFilename()) && !!json.stores["sp-app"]?.state?.trades && !!json.stores["sp-market"]?.state?.prices, dl.suggestedFilename());
+    check("export downloads a timestamped JSON of both stores", /^vantage-data-\d{8}-\d{6}\.json$/.test(dl.suggestedFilename()) && !!json.stores["sp-app"]?.state?.trades && !!json.stores["sp-market"]?.state?.prices && ["profile", "cash", "positions", "orders", "equityHistory", "watchlist", "xp", "completedLessons", "missions", "posts", "comments", "chat", "reported"].every((k) => k in json.stores["sp-app"].state), dl.suggestedFilename());
     await p.getByRole("radio", { name: "Light" }).click();
     check("theme choice applies", (await p.evaluate(() => document.documentElement.dataset.theme)) === "light");
     await p.getByRole("button", { name: "Reset practice account" }).click();
     await p.getByRole("dialog").getByRole("button", { name: "Reset account" }).click();
     const rs = await state(p);
-    check("reset practice account restores cash and clears trades", rs.cash === 100000 && rs.trades.length === 0 && rs.profile.onboarded === true);
+    check("reset practice account restores cash, clears trades, keeps profile and consent", rs.cash === 100000 && rs.trades.length === 0 && rs.profile.onboarded === true && rs.profile.consent?.version === TERMS_VERSION);
     await p.getByRole("button", { name: "Delete all my data" }).click();
     const del = p.getByRole("dialog").getByRole("button", { name: "Delete everything" });
     check("delete is disabled until DELETE is typed", await del.isDisabled());
@@ -348,6 +429,7 @@ async function consent(page) {
     await p.getByLabel(/I.m 18 or older/).waitFor({ timeout: 10000 });
     const after = await state(p);
     const marketAfter = await p.evaluate(() => localStorage.getItem("sp-market"));
+    check("delete leaves no personal data (only fresh simulated prices may be rewritten)", !/Alex|Casey|consent|acceptedAt/.test(marketAfter ?? ""));
     check("delete clears both stores and returns to onboarding", (!after || (!after.profile.onboarded && !after.profile.consent && after.trades.length === 0 && after.profile.name === "")) && (await p.getByText("Welcome to Vantage").isVisible()), `sp-market ${marketAfter ? "rewritten fresh" : "empty"}`);
     check("delete also removes the saved theme", (await p.evaluate(() => localStorage.getItem("sp-theme"))) === null);
     await c.close();
@@ -360,6 +442,7 @@ async function consent(page) {
     await p.goto(`${BASE}/dashboard`);
     await p.getByRole("button", { name: "Menu" }).click();
     const m = p.getByRole("dialog");
+    await m.getByRole("link", { name: "Settings" }).waitFor({ timeout: 8000 }).catch(() => {});
     check("phone menu has Settings, the disclaimer and legal links", (await m.getByRole("link", { name: "Settings" }).isVisible()) && (await m.getByText("Simulated prices and news. Educational only, not investment advice.").isVisible()) && (await m.getByRole("link", { name: "Terms" }).isVisible()) && (await m.getByRole("link", { name: "Privacy" }).isVisible()) && (await m.getByRole("link", { name: "Disclaimer" }).isVisible()));
     await c.close();
   }
@@ -413,6 +496,7 @@ async function consent(page) {
     watch(p, "sources");
     for (const [slug, frag] of [["index-vs-picking", "spglobal.com/spdji/en/research-insights/spiva"], ["overtrading", "doi.org/10.1111/0022-1082.00226"], ["loss-aversion", "doi.org/10.2307/1914185"]]) {
       await p.goto(`${BASE}/learn/${slug}`);
+      await p.getByTestId("lesson-sources").waitFor({ timeout: 10000 }).catch(() => {});
       const a = p.getByTestId("lesson-sources").getByRole("link");
       const href = (await a.count()) === 1 ? await a.getAttribute("href") : "";
       check(`/learn/${slug} ends with a Sources line linking ${frag}`, href.includes(frag) && (await a.getAttribute("target")) === "_blank" && (await p.getByTestId("lesson-sources").innerText()).startsWith("Sources:"), href);

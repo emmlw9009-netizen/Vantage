@@ -9,7 +9,7 @@ import { missionDone } from "@/lib/missions";
 import { rulesReview } from "@/lib/offline-coach";
 import { usd } from "@/lib/format";
 import { scoreLabel } from "@/lib/analysis";
-import { aiAllowed } from "@/lib/ai-notice";
+import { aiGate } from "@/lib/ai-notice";
 
 const TICK_MS = 2000;
 const inflight = new Set<string>();
@@ -28,15 +28,22 @@ async function requestReview(tradeId: string) {
   if (!t) return;
   const prices = useMarket.getState().prices;
   try {
-    // In AI mode nothing is sent until the user has seen the data notice; the review stays pending and retries after.
-    if (!(await aiAllowed())) {
+    // Data goes to the server only when AI mode is confirmed and the notice has been acknowledged.
+    // Otherwise: wait for the notice (AI on) or use the local rules review (offline or probe failed). Nothing is sent.
+    const gate = await aiGate();
+    if (gate === "wait") {
       inflight.delete(tradeId);
+      return;
+    }
+    if (gate === "offline") {
+      useApp.getState().setReview(tradeId, rulesReview(t));
       return;
     }
     const res = await fetch("/api/review", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
+        aiNoticeAck: true,
         trade: { side: t.side, symbol: t.symbol, qty: t.qty, price: t.price, role: t.role, thesis: t.thesis ?? null, stopLoss: t.stopLoss ?? null, takeProfit: t.takeProfit ?? null, realizedPnl: t.realizedPnl ?? null },
         ruleEngine: { score: t.score, label: scoreLabel(t.score), flags: t.flags.map((f) => ({ tone: f.tone, title: f.title, detail: f.detail })), metrics: t.metrics },
         account: { equity: Math.round(equityOf(s.cash, s.positions, prices)), cash: Math.round(s.cash), positions: Object.values(s.positions).map((p) => ({ symbol: p.symbol, qty: p.qty, avgCost: p.avgCost })) },
@@ -57,6 +64,21 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const aiNoticeAt = useApp((s) => s.profile.aiNoticeAt);
   const push = useToast((s) => s.push);
   const seenTrades = useRef<Set<string> | null>(null);
+
+  // Test-only price driver. Exists only when the verify script sets window.__VANTAGE_TEST__ before load; users never have it.
+  useEffect(() => {
+    const w = window as unknown as { __VANTAGE_TEST__?: boolean; __vantageTest?: { setPrices: (p: Record<string, number>) => void } };
+    if (!w.__VANTAGE_TEST__) return;
+    w.__vantageTest = {
+      setPrices: (p) => {
+        useMarket.setState((m) => ({ prices: { ...m.prices, ...p } }));
+        useApp.getState().processPrices(useMarket.getState().prices);
+      },
+    };
+    return () => {
+      delete w.__vantageTest;
+    };
+  }, []);
 
   // market clock
   useEffect(() => {
