@@ -1,4 +1,4 @@
-# Preflight overhaul — design spec + implementation plan
+# Vantage overhaul — design spec + implementation plan
 
 Spec owner: main session (Opus). Implementers: Sonnet sub-agents, one task at a time, in order.
 Repo: /home/user/stockpilot (branch `overhaul`). Read `CLAUDE.md` first; it is the architecture map.
@@ -6,8 +6,8 @@ Repo: /home/user/stockpilot (branch `overhaul`). Read `CLAUDE.md` first; it is t
 ## Why
 v0.1 works (38/38 verify checks), but it looks like a generic AI-generated fintech app: near-black background with a single acid-lime accent, identical rounded cards with the same shadow, gradient glow washes, ALL-CAPS eyebrow labels, `A · B · C` meta strings, `→` appended to links. The overhaul gives it an identity drawn from its own subject and adds learning features. **No feature may need an API key** (the AI coach keeps its offline fallback; nothing new calls external services).
 
-## Product name: Preflight
-Temporary name (owner will pick a permanent one later, so keep the name in ONE constant: `src/lib/brand.ts` exporting `BRAND = { name: "Preflight", tagline: "Practice the market before it counts." }` and use it everywhere instead of hard-coded strings).
+## Product name: Vantage
+Owner-chosen name. Keep the name in ONE constant: `src/lib/brand.ts` exporting `BRAND = { name: "Vantage", tagline: "Practice the market before it counts." }` and use it everywhere instead of hard-coded strings.
 The metaphor: a pilot never takes off without a pre-flight checklist, and a trader shouldn't buy without one. Use the metaphor in **exactly two places**: the order ticket's "Pre-flight check" and the landing hero. Everywhere else, plain words (no "cockpit", "hangar", "ground school" naming; nav stays Home, Markets, Learn, Coach, Community, Journal).
 
 ## Design system
@@ -82,7 +82,7 @@ This is where the boldness goes. Everything around it stays quiet.
 
 ### Task 1: Brand + design foundation + shell
 Files: `src/lib/brand.ts` (new), `src/app/globals.css`, `src/app/layout.tsx`, `package.json`, `src/components/ui.tsx`, `src/components/shell.tsx`, `src/components/onboarding.tsx`, `README.md`, `CLAUDE.md` (name only), `scripts/verify.cjs` (selectors only if needed).
-1. Add `src/lib/brand.ts`; replace every user-visible "Stockpilot" with `BRAND.name` (grep the repo; also metadata title/description in `layout.tsx`, README title, CLAUDE.md title, package.json `name: "preflight"`).
+1. Add `src/lib/brand.ts`; replace every user-visible "Stockpilot" with `BRAND.name` (grep the repo; also metadata title/description in `layout.tsx`, README title, CLAUDE.md title, package.json `name: "vantage"`).
 2. Fonts: install the three @fontsource packages, import them in `layout.tsx`, remove `geist`, define `--font-sans` (Barlow), `--font-display` (Barlow Semi Condensed), `--font-serif` (Source Serif 4) in `@theme inline`, and expose Tailwind utilities `font-display`, `font-serif`.
 3. Rewrite tokens per the Color table (light default + dark under both `@media (prefers-color-scheme: dark) :root:not([data-theme="light"])` and `:root[data-theme="dark"]`). Map Tailwind color names so existing class names keep working where sensible (`bg-panel`, `bg-panel-2`, `text-ink`, `text-ink-2`, `text-muted`, `border-line`, `bg-accent`, `text-accent-ink`, `text-up`, `text-down`, `text-warn`, `bg-series-1`) and add `coach` (`text-coach`, `bg-coach`, `border-coach`). Delete `.glow`, `.grid-bg`, the lime values, `--brand` (replace its usages with `--coach` for Nova or `--accent` for actions).
 4. Base styles: body 16px Barlow; `.card` becomes the level-1 panel (radius 14, border, no shadow); add `.inset` (level-2); global `:focus-visible` ring; `prefers-reduced-motion` disables `.flash-up/.flash-down` and any animation.
