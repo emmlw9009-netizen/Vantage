@@ -3,8 +3,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { analyzeTrade, Flag, PortfolioContext } from "@/lib/analysis";
-import { uid } from "@/lib/format";
+import { uid, usd } from "@/lib/format";
+import { expectedFill, marketFillPrice } from "@/lib/pricing";
 import { useMarket } from "./market";
+import { useToast } from "./toast";
+import { guardedStorage } from "./sync";
 
 export const STARTING_CASH = 100_000;
 
@@ -35,6 +38,8 @@ export interface Order {
   stopLoss?: number;
   takeProfit?: number;
   groupId?: string; // bracket legs share a group (one-cancels-other)
+  /** Why part of this order was not carried out (e.g. a stop that ended up above the fill price). */
+  note?: string;
 }
 
 export interface CoachReview {
@@ -244,14 +249,28 @@ export const useApp = create<AppState>()(
 
         let orders = s.orders.map((o) => (o.id === order.id ? { ...o, status: "filled" as const, filledAt: Date.now(), fillPrice: price, qty } : o));
 
-        // bracket legs for new buys
+        // bracket legs for new buys, validated against the ACTUAL fill price. A leg that cannot be valid is never dropped silently.
         if (order.side === "buy") {
           const groupId = uid();
-          if (order.stopLoss && order.stopLoss < price) {
-            orders.push({ id: uid(), symbol: order.symbol, side: "sell", type: "stop", qty, stopPrice: order.stopLoss, status: "open", role: "stop-loss", createdAt: Date.now(), groupId });
+          const notes: string[] = [];
+          if (order.stopLoss) {
+            if (order.stopLoss < price) {
+              orders.push({ id: uid(), symbol: order.symbol, side: "sell", type: "stop", qty, stopPrice: order.stopLoss, status: "open", role: "stop-loss", createdAt: Date.now(), groupId });
+            } else {
+              notes.push(`Stop-loss at ${usd(order.stopLoss)} was cancelled: it is at or above the ${usd(price)} fill, so it would sell immediately.`);
+            }
           }
-          if (order.takeProfit && order.takeProfit > price) {
-            orders.push({ id: uid(), symbol: order.symbol, side: "sell", type: "limit", qty, limitPrice: order.takeProfit, status: "open", role: "take-profit", createdAt: Date.now(), groupId });
+          if (order.takeProfit) {
+            if (order.takeProfit > price) {
+              orders.push({ id: uid(), symbol: order.symbol, side: "sell", type: "limit", qty, limitPrice: order.takeProfit, status: "open", role: "take-profit", createdAt: Date.now(), groupId });
+            } else {
+              notes.push(`Take-profit at ${usd(order.takeProfit)} was cancelled: it is at or below the ${usd(price)} fill.`);
+            }
+          }
+          if (notes.length) {
+            const note = notes.join(" ");
+            orders = orders.map((o) => (o.id === order.id ? { ...o, note } : o));
+            useToast.getState().push({ title: `${order.symbol} filled without ${notes.length > 1 ? "its exit legs" : order.stopLoss && order.stopLoss >= price ? "a stop-loss" : "a take-profit"}`, body: note, tone: "risk", href: "/dashboard" });
           }
         } else {
           // one-cancels-other; also cancel any sell legs that exceed what is left
@@ -301,10 +320,14 @@ export const useApp = create<AppState>()(
           const qty = Math.floor(input.qty);
           if (!Number.isFinite(qty) || qty <= 0) return { ok: false, error: "Enter a whole number of shares." };
           if (input.side === "buy") {
-            const ref = input.type === "limit" && input.limitPrice ? input.limitPrice : price;
-            if (qty * ref > s.cash) return { ok: false, error: `Not enough cash. You can afford ${Math.floor(s.cash / ref)} shares.` };
-            if (input.stopLoss && input.stopLoss >= ref) return { ok: false, error: "Your stop-loss must be below your entry price." };
-            if (input.takeProfit && input.takeProfit <= ref) return { ok: false, error: "Your take-profit must be above your entry price." };
+            // cash is checked at the price we would really pay: the slipped quote for market orders, the limit for limit orders
+            const trigger = input.limitPrice;
+            const cashRef = input.type === "limit" && trigger ? Math.max(trigger, expectedFill("buy", "market", price)) : expectedFill("buy", input.type, price, trigger);
+            if (qty * cashRef > s.cash) return { ok: false, error: `Not enough cash. You can afford ${Math.floor(s.cash / cashRef)} shares.` };
+            // exits are checked against where the order will actually fill (a limit above the market fills at the market)
+            const fillRef = expectedFill("buy", input.type, price, trigger);
+            if (input.stopLoss && input.stopLoss >= fillRef) return { ok: false, error: `Your stop-loss must be below ${usd(fillRef)}, the price this order would fill at.` };
+            if (input.takeProfit && input.takeProfit <= fillRef) return { ok: false, error: `Your take-profit must be above ${usd(fillRef)}, the price this order would fill at.` };
           } else {
             const held = s.positions[input.symbol]?.qty ?? 0;
             if (qty > held) return { ok: false, error: held ? `You only hold ${held} shares.` : `You don't own any ${input.symbol}.` };
@@ -322,15 +345,14 @@ export const useApp = create<AppState>()(
             status: "open",
             role: input.side === "buy" ? "entry" : "exit",
             createdAt: Date.now(),
-            thesis: input.thesis?.trim() || undefined,
+            thesis: input.thesis?.trim().slice(0, 1000) || undefined,
             stopLoss: input.side === "buy" ? input.stopLoss : undefined,
             takeProfit: input.side === "buy" ? input.takeProfit : undefined,
           };
           set({ orders: [order, ...s.orders] });
           if (order.type === "market") {
             // tiny slippage so market orders feel real
-            const slip = order.side === "buy" ? 1.0002 : 0.9998;
-            const tradeId = fill(order, Math.round(price * slip * 100) / 100);
+            const tradeId = fill(order, marketFillPrice(order.side, price));
             if (!tradeId) {
               set((st) => ({ orders: st.orders.map((o) => (o.id === order.id ? { ...o, status: "cancelled" as const } : o)) }));
               return { ok: false, error: "Order could not be filled." };
@@ -356,7 +378,11 @@ export const useApp = create<AppState>()(
             if (trigger) {
               const id = fill(o, p);
               if (id) filled.push(id);
-              else set((s) => ({ orders: s.orders.map((x) => (x.id === o.id ? { ...x, status: "cancelled" as const } : x)) }));
+              else {
+                const why = o.side === "buy" ? "not enough cash" : "no shares left to sell";
+                set((s) => ({ orders: s.orders.map((x) => (x.id === o.id ? { ...x, status: "cancelled" as const, note: `Cancelled: ${why}.` } : x)) }));
+                useToast.getState().push({ title: `${o.symbol} order cancelled`, body: `Your ${o.type} ${o.side} could not fill: ${why}.`, tone: "warn", href: "/dashboard" });
+              }
             }
           }
           // equity snapshot every ~10s
@@ -427,7 +453,14 @@ export const useApp = create<AppState>()(
         resetAccount: () => set({ ...freshAccount() }),
       };
     },
-    { name: "sp-app", version: 1 },
+    {
+      name: "sp-app",
+      version: 1,
+      storage: guardedStorage,
+      // keep older blobs instead of discarding them; merge() below validates every field
+      migrate: (state) => state as AppState,
+      merge: (persisted, current) => mergeApp(persisted, current),
+    },
   ),
 );
 
@@ -439,3 +472,30 @@ export function useEquity() {
 }
 
 export { equityOf };
+
+// function declaration on purpose: persist hydrates while this module is still loading, so no const/TDZ
+function isRec(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === "object" && !Array.isArray(v);
+}
+
+/** Validating merge: any malformed persisted field falls back to its default instead of crashing the app. */
+function mergeApp(persisted: unknown, current: AppState): AppState {
+  if (!isRec(persisted)) return current;
+  const p = persisted;
+  const out: Record<string, unknown> = { ...current };
+  for (const k of ["orders", "equityHistory", "watchlist", "activeDays", "posts", "chat"] as const) if (Array.isArray(p[k])) out[k] = (p[k] as unknown[]).filter((x) => x != null);
+  for (const k of ["completedLessons", "missions", "liked", "comments", "reported", "following"] as const) if (isRec(p[k])) out[k] = p[k];
+  for (const k of ["cash", "xp"] as const) if (typeof p[k] === "number" && Number.isFinite(p[k])) out[k] = p[k];
+  if (isRec(p.profile)) out.profile = { ...current.profile, ...p.profile };
+  if (isRec(p.positions)) {
+    const pos: Record<string, Position> = {};
+    for (const [sym, v] of Object.entries(p.positions)) {
+      if (isRec(v) && Number.isFinite(v.qty) && (v.qty as number) > 0 && Number.isFinite(v.avgCost)) pos[sym] = { ...(v as unknown as Position), symbol: sym, openedAt: Number.isFinite(v.openedAt) ? (v.openedAt as number) : Date.now() };
+    }
+    out.positions = pos;
+  }
+  if (Array.isArray(p.trades)) {
+    out.trades = (p.trades as unknown[]).filter(isRec).map((t) => ({ ...t, flags: Array.isArray(t.flags) ? t.flags : [], metrics: isRec(t.metrics) ? t.metrics : {} }));
+  }
+  return out as unknown as AppState;
+}

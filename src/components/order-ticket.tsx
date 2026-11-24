@@ -5,6 +5,7 @@ import { useApp, equityOf, OrderType } from "@/store/app";
 import { useMarket } from "@/store/market";
 import { analyzeTrade } from "@/lib/analysis";
 import { preflightChecks, type PreflightCheck } from "@/lib/preflight";
+import { expectedFill, parsePrice } from "@/lib/pricing";
 import { cn, pct, usd } from "@/lib/format";
 import { Segmented } from "./ui";
 import { CheckCell, CheckStrip, ScoreLoop, MarkGlyph } from "./marks";
@@ -12,15 +13,8 @@ import { AnimatedNumber } from "./motion/animated-number";
 import { Reveal } from "./motion/transition-panel";
 import type { CheckId, CheckState } from "@/lib/trade-checks";
 
-/** Strict money parsing: digits, one optional decimal point, thousands separators allowed. "5abc" and "1e3" are rejected. */
-const num = (s: string) => {
-  const t = s.replace(/[,\s]/g, "");
-  if (!/^\d+(\.\d+)?$/.test(t)) return undefined;
-  const n = Number(t);
-  return Number.isFinite(n) && n > 0 ? n : undefined;
-};
-/** Fills happen a hair above the quote, so size and Max leave room for it. */
-const SLIP = 1.0005;
+/** Risk budget used by the "size by risk" buttons: slightly under the chosen percent so slippage and a tick of drift stay within it. */
+const RISK_BUDGET = 0.98;
 
 /** One ticket row: Nova's check cell in the left margin, the field on the right. */
 function Row({ check, show, children, className }: { check?: PreflightCheck; show: boolean; children: React.ReactNode; className?: string }) {
@@ -101,11 +95,19 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
   });
 
   const equity = equityOf(cash, positions, prices);
-  const entry = type === "market" ? price : num(trigger) ?? price;
+  const triggerP = parsePrice(trigger);
+  const stopP = parsePrice(stop);
+  const targetP = parsePrice(target);
+  const triggerN = triggerP.value;
+  const stopN = stopP.value;
+  const targetN = targetP.value;
+  // the price this order would really fill at (slippage included); sizing, checklist and placeOrder all use it
+  const entry = expectedFill(side, type, price, triggerN);
+  // what a buy can cost at most: a limit buy reserves cash at its limit
+  const cashRef = side === "buy" && type === "limit" && triggerN ? Math.max(entry, triggerN) : entry;
   const q = Math.floor(Number(qty) || 0);
-  const stopN = num(stop);
-  const targetN = num(target);
   const buy = side === "buy";
+  const lastFill = useRef({ at: 0, sig: "" });
 
   const preview = useMemo(() => {
     if (!price || q <= 0) return null;
@@ -125,8 +127,12 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
       setError("Set a stop-loss below the entry first. The share count is worked out from it.");
       return;
     }
-    const shares = Math.floor((equity * riskPct) / (entry * SLIP - stopN));
-    setQty(String(Math.max(1, Math.min(shares, Math.floor(cash / (entry * SLIP))))));
+    const shares = Math.floor((equity * riskPct * RISK_BUDGET) / (entry - stopN) - 1e-9);
+    if (shares < 1) {
+      setError(`Even 1 share would risk more than ${riskPct * 100}% of your account. Move the stop closer.`);
+      return;
+    }
+    setQty(String(Math.min(shares, Math.floor(cash / cashRef))));
     setError(null);
   };
 
@@ -141,6 +147,9 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
 
   const submit = () => {
     if (busy.current || !touched) return;
+    // a double click (or Enter twice) repeats the exact order that was just placed: ignore it, but allow edits and new orders
+    const sig = `${side}|${type}|${q}|${trigger}`;
+    if (lastFill.current.sig === sig && Date.now() - lastFill.current.at < 1500) return;
     busy.current = true;
     setError(null);
     setOkMsg(null);
@@ -149,8 +158,8 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
       side,
       type,
       qty: q,
-      limitPrice: type === "limit" ? num(trigger) : undefined,
-      stopPrice: type === "stop" ? num(trigger) : undefined,
+      limitPrice: type === "limit" ? triggerN : undefined,
+      stopPrice: type === "stop" ? triggerN : undefined,
       thesis,
       stopLoss: buy ? stopN : undefined,
       takeProfit: buy ? targetN : undefined,
@@ -159,6 +168,7 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
       busy.current = false;
       return setError(res.error ?? "The order wasn't placed. Check the fields above and try again.");
     }
+    lastFill.current = { at: Date.now(), sig };
     if (res.tradeId) {
       setOkMsg(`${buy ? "Bought" : "Sold"} ${q} ${symbol}. Nova is reviewing it.`);
       onFilled?.(res.tradeId);
@@ -212,7 +222,12 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
                 {type === "limit" ? "Limit price" : "Stop price"}
                 <span className="t-micro text-muted">{type === "limit" ? (buy ? "Fills at this price or lower" : "Fills at this price or higher") : "Sells if the price falls to this"}</span>
               </label>
-              <input id="trigger" inputMode="decimal" autoComplete="off" placeholder={price.toFixed(2)} value={trigger} onChange={(e) => setTrigger(e.target.value)} className="field tnum" maxLength={12} />
+              <input id="trigger" inputMode="decimal" autoComplete="off" placeholder={price.toFixed(2)} value={trigger} onChange={(e) => setTrigger(e.target.value)} aria-invalid={!!triggerP.error} className="field tnum" maxLength={12} />
+              {triggerP.error && (
+                <p className="mt-2 t-small text-red" role="alert" data-field-error="trigger">
+                  {triggerP.error}. The {type === "limit" ? "limit" : "stop"} price is not set.
+                </p>
+              )}
             </div>
           </Reveal>
         </div>
@@ -242,13 +257,18 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
               <span className="t-micro text-muted">Where your reason stops being true</span>
             </label>
             <div className="flex gap-1.5">
-              <input id="stop" inputMode="decimal" autoComplete="off" placeholder="e.g. 5% below" value={stop} onChange={(e) => setStop(e.target.value)} className="field tnum min-w-0 flex-1" maxLength={12} />
+              <input id="stop" inputMode="decimal" autoComplete="off" placeholder="e.g. 5% below" value={stop} onChange={(e) => setStop(e.target.value)} aria-invalid={!!stopP.error} className="field tnum min-w-0 flex-1" maxLength={12} />
               {[0.03, 0.05, 0.08].map((p) => (
                 <button key={p} onClick={() => setStop((entry * (1 - p)).toFixed(2))} className={quick}>
                   −{p * 100}%
                 </button>
               ))}
             </div>
+            {stopP.error && (
+              <p className="mt-2 t-small text-red" role="alert" data-field-error="stop">
+                {stopP.error}. The stop-loss is not set.
+              </p>
+            )}
           </Row>
         )}
 
@@ -264,7 +284,7 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
           </label>
           <div className="flex gap-1.5">
             <input id="qty" inputMode="numeric" autoComplete="off" maxLength={7} value={qty} onChange={(e) => onQty(e.target.value)} className="field tnum min-w-0 flex-1" aria-describedby={qtyNote ? "qty-note" : undefined} />
-            <button onClick={() => setQty(String(buy ? Math.floor(cash / (entry * SLIP)) : held))} className={quick}>
+            <button onClick={() => setQty(String(buy ? Math.floor(cash / cashRef) : held))} className={quick}>
               Max
             </button>
           </div>
@@ -293,13 +313,18 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
               {preview?.metrics.rewardRisk != null && <span className="tnum t-micro text-ink-2">Reward to risk {preview.metrics.rewardRisk.toFixed(1)} : 1</span>}
             </label>
             <div className="flex gap-1.5">
-              <input id="target" inputMode="decimal" autoComplete="off" placeholder="e.g. 10% above" value={target} onChange={(e) => setTarget(e.target.value)} className="field tnum min-w-0 flex-1" maxLength={12} />
+              <input id="target" inputMode="decimal" autoComplete="off" placeholder="e.g. 10% above" value={target} onChange={(e) => setTarget(e.target.value)} aria-invalid={!!targetP.error} className="field tnum min-w-0 flex-1" maxLength={12} />
               {[0.06, 0.1, 0.16].map((p) => (
                 <button key={p} onClick={() => setTarget((entry * (1 + p)).toFixed(2))} className={quick}>
                   +{p * 100}%
                 </button>
               ))}
             </div>
+            {targetP.error && (
+              <p className="mt-2 t-small text-red" role="alert" data-field-error="target">
+                {targetP.error}. The take-profit is not set.
+              </p>
+            )}
           </Row>
         )}
 

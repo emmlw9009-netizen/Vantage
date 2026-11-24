@@ -1,6 +1,6 @@
 /** Export and delete everything the app stores in this browser. Client only. */
 const STORE_KEYS = ["sp-app", "sp-market"] as const;
-const ALL_KEYS = [...STORE_KEYS, "sp-theme"] as const;
+const ALL_KEYS = [...STORE_KEYS, ...STORE_KEYS.map((k) => `${k}:stamp`), "sp-theme"] as const;
 
 function read(key: string): unknown {
   try {

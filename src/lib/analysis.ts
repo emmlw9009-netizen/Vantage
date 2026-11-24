@@ -77,7 +77,7 @@ export function analyzeTrade(t: TradeInput, ctx: PortfolioContext): Analysis {
   }
 
   // ---- thesis / journaling ----
-  const thesisLen = (t.thesis ?? "").trim().length;
+  const thesisLen = [...(t.thesis ?? "").trim()].length;
   if (thesisLen >= 40) {
     score += 8;
     flags.push({ id: "thesis", tone: "good", title: "You wrote down a thesis", detail: "Writing down why you're trading lets you grade your thinking later, not just the result.", lesson: "trading-journal" });
