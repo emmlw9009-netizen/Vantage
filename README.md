@@ -1,4 +1,4 @@
-# Stockpilot
+# Vantage
 
 Learn the stock market with an AI coach in your corner: paper trade a live simulated market, get instant feedback on every decision, take an interactive course, and grow with a community.
 

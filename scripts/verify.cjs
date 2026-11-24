@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * End-to-end verification loop for Stockpilot.
+ * End-to-end verification loop for Vantage.
  *   npm run build && npm start   (in another terminal)
  *   npm run verify               (BASE_URL=http://localhost:3000 SHOTS=./verify-shots)
  *

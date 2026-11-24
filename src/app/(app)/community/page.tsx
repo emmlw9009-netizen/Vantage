@@ -1,5 +1,6 @@
 "use client";
 
+import { BRAND } from "@/lib/brand";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Award, Flame, Heart, MessageCircle, Send, Sparkles, Trophy, Users } from "lucide-react";
@@ -27,7 +28,7 @@ async function novaReply(postBody: string): Promise<string> {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         context: buildCoachContext(),
-        messages: [{ role: "user", content: `I just posted this in the Stockpilot community feed:\n\n"${postBody}"\n\nReply as a public comment from Coach Nova: 2–3 warm, specific sentences. If there's a risk-management lesson in it, name it and link the relevant lesson. No preamble.` }],
+        messages: [{ role: "user", content: `I just posted this in the ${BRAND.name} community feed:\n\n"${postBody}"\n\nReply as a public comment from Coach Nova: 2–3 warm, specific sentences. If there's a risk-management lesson in it, name it and link the relevant lesson. No preamble.` }],
       }),
     });
     if (res.headers.get("content-type")?.includes("application/json")) throw new Error("offline");
@@ -155,7 +156,7 @@ function Feed() {
                     </div>
                   ))}
                   {novaTyping === p.id && (
-                    <div className="flex items-center gap-2 text-sm text-muted"><Sparkles className="size-4 animate-pulse text-brand" /> Nova is replying…</div>
+                    <div className="flex items-center gap-2 text-sm text-muted"><Sparkles className="size-4 animate-pulse text-coach" /> Nova is replying…</div>
                   )}
                   <form
                     onSubmit={(e) => {
@@ -297,13 +298,13 @@ function Challenges() {
       {CHALLENGES.map((c) => {
         const joined = !!following[`challenge:${c.id}`];
         return (
-          <section key={c.id} className="card glow flex flex-col p-5">
+          <section key={c.id} className="card flex flex-col p-5">
             <div className="flex items-center gap-2 text-xs font-semibold text-muted"><Flame className="size-4 text-warn" /> Ends in {c.endsInDays} days</div>
             <h2 className="mt-2 text-lg font-semibold tracking-tight">{c.title}</h2>
             <p className="mt-1 flex-1 text-sm text-ink-2">{c.detail}</p>
             <div className="mt-4 flex items-center justify-between text-xs text-muted">
               <span className="tnum">{(c.participants + (joined ? 1 : 0)).toLocaleString()} joined</span>
-              <span className="font-semibold text-brand">+{c.xp} XP</span>
+              <span className="font-semibold text-accent">+{c.xp} XP</span>
             </div>
             <button onClick={() => toggleFollow(`challenge:${c.id}`)} className={cn("mt-3 h-10 rounded-full text-sm font-semibold", joined ? "border border-line text-ink-2" : "bg-accent text-accent-ink")}>
               {joined ? "Joined ✓" : "Join challenge"}

@@ -121,9 +121,9 @@ export default function Dashboard() {
           </dl>
         </section>
 
-        <section className="card glow flex flex-col p-5">
+        <section className="card flex flex-col p-5">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            <span className="grid size-7 place-items-center rounded-full bg-brand text-white"><Sparkles className="size-3.5" /></span>
+            <span className="grid size-7 place-items-center rounded-full bg-coach text-coach-ink"><Sparkles className="size-3.5" /></span>
             Coach Nova&apos;s brief
           </div>
           <div className="flex-1 space-y-3">
@@ -214,7 +214,7 @@ export default function Dashboard() {
           <div className="card p-5">
             <SectionTitle title="Your path" action={<span className="text-xs text-muted">Lv {lvl.level} · {xp} XP</span>} />
             <div className="h-2 overflow-hidden rounded-full bg-panel-2" role="progressbar" aria-valuenow={Math.round(lvl.progress * 100)} aria-valuemin={0} aria-valuemax={100}>
-              <div className="h-full rounded-full bg-brand" style={{ width: `${lvl.progress * 100}%` }} />
+              <div className="h-full rounded-full bg-accent" style={{ width: `${lvl.progress * 100}%` }} />
             </div>
             <div className="mt-1 text-xs text-muted">{lvl.name} · {Math.max(0, lvl.next - xp)} XP to next level</div>
             {nextLesson && (

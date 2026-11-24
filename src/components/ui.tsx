@@ -41,7 +41,14 @@ export function Avatar({ id, size = 36 }: { id: string; size?: number }) {
   const profile = useApp((s) => s.profile);
   const m = MEMBER_MAP[id];
   const name = id === ME ? profile.name || "You" : m?.name ?? "?";
-  const hue = id === ME ? 95 : m?.hue ?? 200;
+  if (id === NOVA_ID) {
+    return (
+      <span className="inline-grid shrink-0 place-items-center rounded-full bg-coach font-display font-bold text-coach-ink" style={{ width: size, height: size, fontSize: size * 0.5 }} aria-hidden>
+        N
+      </span>
+    );
+  }
+  const hue = id === ME ? 240 : m?.hue ?? 200;
   const initials = name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
   return (
     <span
@@ -54,23 +61,46 @@ export function Avatar({ id, size = 36 }: { id: string; size?: number }) {
   );
 }
 
-export function ScoreRing({ score, size = 56 }: { score: number; size?: number }) {
-  const r = size / 2 - 5;
-  const c = 2 * Math.PI * r;
-  const tone = score >= 85 ? "var(--up)" : score >= 70 ? "var(--series-1)" : score >= 50 ? "var(--warn)" : "var(--down)";
+const NOVA_ID = "u7";
+
+export function scoreTier(score: number): { label: string; tone: string } {
+  if (score >= 85) return { label: "Disciplined", tone: "var(--up)" };
+  if (score >= 70) return { label: "Solid", tone: "var(--series-1)" };
+  if (score >= 50) return { label: "Needs work", tone: "var(--warn)" };
+  return { label: "High risk", tone: "var(--down)" };
+}
+
+/** Semicircle gauge, 0 to 100, with the number inside and the tier label underneath (label hidden when small). */
+export function ScoreGauge({ score, size = 72 }: { score: number; size?: number }) {
+  const sw = Math.max(4, Math.round(size / 10));
+  const r = size / 2 - sw / 2;
+  const cy = size / 2;
+  const arc = Math.PI * r;
+  const { label, tone } = scoreTier(score);
+  const clamped = Math.max(0, Math.min(100, score));
+  const d = `M ${sw / 2} ${cy} A ${r} ${r} 0 0 1 ${size - sw / 2} ${cy}`;
+  const showLabel = size >= 64;
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }} role="img" aria-label={`Coach score ${score} out of 100`}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--panel-2)" strokeWidth={5} />
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={tone} strokeWidth={5} strokeLinecap="round" strokeDasharray={`${(score / 100) * c} ${c}`} />
-      </svg>
-      <span className="tnum absolute inset-0 grid place-items-center text-sm font-semibold">{score}</span>
+    <div className="shrink-0 text-center" style={{ width: size }} role="img" aria-label={`Coach score ${score} out of 100, ${label}`}>
+      <div className="relative" style={{ width: size, height: size / 2 + sw / 2 }}>
+        <svg width={size} height={size / 2 + sw / 2} aria-hidden>
+          <path d={d} fill="none" stroke="var(--panel-2)" strokeWidth={sw} strokeLinecap="round" />
+          <path d={d} fill="none" stroke={tone} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${(clamped / 100) * arc} ${arc}`} />
+        </svg>
+        <span className="tnum absolute inset-x-0 bottom-0 text-center font-display font-bold leading-none" style={{ fontSize: size * 0.3 }}>
+          {score}
+        </span>
+      </div>
+      {showLabel && <div className="mt-1 text-xs font-medium leading-tight text-ink-2">{label}</div>}
     </div>
   );
 }
 
+/** Kept so existing callers keep working. */
+export const ScoreRing = ScoreGauge;
+
 export function Pill({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <span className={cn("inline-flex items-center gap-1 rounded-full border border-line bg-panel-2 px-2.5 py-0.5 text-xs font-medium text-ink-2", className)}>{children}</span>;
+  return <span className={cn("inline-flex items-center gap-1 rounded-full bg-panel-2 px-2.5 py-0.5 text-xs font-medium text-ink-2", className)}>{children}</span>;
 }
 
 export function Toaster() {
@@ -79,13 +109,13 @@ export function Toaster() {
   return (
     <div className="pointer-events-none fixed right-4 top-[4.5rem] z-50 flex w-[min(360px,calc(100vw-2rem))] flex-col gap-2 md:bottom-6 md:top-auto">
       {toasts.map((t) => (
-        <div key={t.id} className="card pointer-events-auto flex items-start gap-3 p-3.5 pr-2" role="status">
-          <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", t.tone === "good" ? "bg-up" : t.tone === "warn" ? "bg-warn" : t.tone === "risk" ? "bg-down" : "bg-series-1")} />
+        <div key={t.id} className="popover pointer-events-auto flex items-start gap-3 p-3.5 pr-2" role="status">
+          <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", t.tone === "good" ? "bg-up" : t.tone === "warn" ? "bg-warn" : t.tone === "risk" ? "bg-down" : "bg-accent")} />
           <div className="min-w-0 flex-1">
             <div className="text-sm font-semibold">{t.href ? <Link href={t.href}>{t.title}</Link> : t.title}</div>
             {t.body && <div className="text-sm text-ink-2">{t.body}</div>}
           </div>
-          <button onClick={() => dismiss(t.id)} className="rounded-md p-1 text-muted hover:text-ink" aria-label="Dismiss">
+          <button onClick={() => dismiss(t.id)} className="grid size-8 place-items-center rounded-lg text-muted hover:text-ink" aria-label="Dismiss">
             <X className="size-4" />
           </button>
         </div>
@@ -149,7 +179,7 @@ function inline(s: string): React.ReactNode[] {
 export function SectionTitle({ title, action }: { title: string; action?: React.ReactNode }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
-      <h2 className="text-[15px] font-semibold tracking-tight">{title}</h2>
+      <h2 className="text-lg font-semibold">{title}</h2>
       {action}
     </div>
   );
@@ -157,14 +187,14 @@ export function SectionTitle({ title, action }: { title: string; action?: React.
 
 export function Segmented<T extends string>({ value, options, onChange, size = "sm" }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; size?: "sm" | "md" }) {
   return (
-    <div className="inline-flex rounded-full border border-line bg-panel-2 p-0.5" role="tablist">
+    <div className="inline-flex rounded-[10px] bg-panel-2 p-0.5" role="tablist">
       {options.map((o) => (
         <button
           key={o.value}
           role="tab"
           aria-selected={value === o.value}
           onClick={() => onChange(o.value)}
-          className={cn("rounded-full font-medium transition", size === "sm" ? "px-3 py-1 text-xs" : "px-4 py-1.5 text-sm", value === o.value ? "bg-panel text-ink shadow-sm" : "text-muted hover:text-ink")}
+          className={cn("rounded-lg font-medium transition", size === "sm" ? "px-3 py-1.5 text-sm" : "px-4 py-2 text-sm", value === o.value ? "bg-panel text-ink ring-1 ring-line" : "text-muted hover:text-ink")}
         >
           {o.label}
         </button>

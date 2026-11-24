@@ -1,3 +1,4 @@
+import { BRAND } from "@/lib/brand";
 import Link from "next/link";
 import { ArrowRight, CandlestickChart, CheckCircle2, GraduationCap, ShieldAlert, Sparkles, Users, AlertTriangle } from "lucide-react";
 import { Logo } from "@/components/shell";
@@ -19,8 +20,6 @@ const STEPS = [
 export default function Landing() {
   return (
     <div className="relative overflow-hidden">
-      <div className="glow pointer-events-none absolute inset-x-0 top-0 h-[720px]" />
-      <div className="grid-bg pointer-events-none absolute inset-x-0 top-0 h-[720px] opacity-60" />
 
       <header className="relative mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
         <Logo />
@@ -34,12 +33,12 @@ export default function Landing() {
       <section className="relative mx-auto max-w-6xl px-4 pb-16 pt-12 sm:px-6 sm:pt-20">
         <div className="mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-line bg-panel/70 px-3 py-1 text-xs font-medium text-ink-2 backdrop-blur">
-            <Sparkles className="size-3.5 text-brand" /> AI-coached paper trading
+            <Sparkles className="size-3.5 text-coach" /> AI-coached paper trading
           </span>
           <h1 className="mt-6 text-5xl font-semibold tracking-[-0.04em] sm:text-7xl">
             Learn the market
             <br />
-            <span className="bg-gradient-to-r from-[var(--brand)] via-[var(--series-1)] to-[var(--up)] bg-clip-text text-transparent">with a coach in your corner.</span>
+            <span className="bg-gradient-to-r text-accent">with a coach in your corner.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-lg text-ink-2">Paper trade a live market, get instant AI feedback on every decision, and build real skill before you risk a single real dollar.</p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -97,7 +96,7 @@ export default function Landing() {
               </div>
             </div>
             <div className="mt-4 rounded-2xl bg-panel-2 p-3.5 text-sm">
-              <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-brand"><Sparkles className="size-3.5" /> Nova</div>
+              <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-coach"><Sparkles className="size-3.5" /> Nova</div>
               Great structure: you risked 0.9% with a clear invalidation level. Your target sits right under resistance, so consider scaling out half there.
             </div>
             <ul className="mt-4 space-y-2.5 text-sm">
@@ -127,7 +126,7 @@ export default function Landing() {
         <div className="mt-10 grid gap-4 md:grid-cols-4">
           {STEPS.map((s) => (
             <div key={s.n} className="rounded-3xl border border-line p-6">
-              <div className="tnum text-sm font-semibold text-brand">{s.n}</div>
+              <div className="tnum text-sm font-semibold text-accent">{s.n}</div>
               <div className="mt-2 text-lg font-semibold">{s.t}</div>
               <p className="mt-1 text-sm text-ink-2">{s.d}</p>
             </div>
@@ -136,14 +135,14 @@ export default function Landing() {
       </section>
 
       <section className="relative mx-auto max-w-6xl px-4 pb-24 pt-8 sm:px-6">
-        <div className="card glow overflow-hidden p-10 text-center sm:p-16">
+        <div className="card overflow-hidden p-10 text-center sm:p-16">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-5xl">Your first trade is on us.</h2>
           <p className="mx-auto mt-3 max-w-lg text-ink-2">It&apos;s $100,000 of paper money, so mistakes cost nothing and every lesson sticks.</p>
           <Link href="/dashboard" className="mt-8 inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 font-semibold text-accent-ink hover:brightness-95">
-            Open Stockpilot <ArrowRight className="size-4" />
+            Open {BRAND.name} <ArrowRight className="size-4" />
           </Link>
         </div>
-        <p className="mt-8 text-center text-xs text-muted">Stockpilot is an educational simulator. Prices and news are generated. Nothing here is investment advice.</p>
+        <p className="mt-8 text-center text-xs text-muted">{BRAND.name} is an educational simulator. Prices and news are generated. Nothing here is investment advice.</p>
       </section>
     </div>
   );

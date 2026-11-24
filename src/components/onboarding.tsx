@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Sparkles } from "lucide-react";
 import { useApp, Profile } from "@/store/app";
 import { cn } from "@/lib/format";
+import { BRAND } from "@/lib/brand";
+import { Avatar } from "./ui";
 
 const EXP: { v: Profile["experience"]; label: string; sub: string }[] = [
   { v: "new", label: "Brand new", sub: "I've never bought a stock" },
@@ -29,22 +30,22 @@ export function Onboarding() {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="card glow w-full max-w-lg p-6 sm:p-8">
+    <div className="fixed inset-0 z-[60] grid place-items-center bg-ink/50 p-4 backdrop-blur-sm">
+      <div className="card w-full max-w-lg p-6 sm:p-8">
         <div className="mb-6 flex items-center gap-2 text-sm font-medium text-ink-2">
-          <Sparkles className="size-4 text-brand" /> Coach Nova
-          <span className="ml-auto text-xs text-muted">{step + 1} / 3</span>
+          <Avatar id="u7" size={24} /> Coach Nova
+          <span className="ml-auto text-sm text-muted">Step {step + 1} of 3</span>
         </div>
         {step === 0 && (
           <>
-            <h2 className="text-2xl font-semibold tracking-tight">Welcome. You have $100,000 of paper money.</h2>
+            <h2 className="font-display text-3xl font-bold leading-tight">Welcome to {BRAND.name}. You have $100,000 of paper money.</h2>
             <p className="mt-2 text-ink-2">I'm your AI coach. I'll review every trade you make, teach you what the pros do, and help you build a strategy. First, what should I call you?</p>
-            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && setStep(1)} placeholder="Your first name" className="mt-6 h-12 w-full rounded-2xl border border-line bg-panel-2 px-4 outline-none focus:border-line-strong" />
+            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && setStep(1)} placeholder="Your first name" className="mt-6 h-12 w-full rounded-[10px] bg-panel-2 px-4 outline-none focus:ring-2 focus:ring-accent" />
           </>
         )}
         {step === 1 && (
           <>
-            <h2 className="text-2xl font-semibold tracking-tight">How much investing experience do you have?</h2>
+            <h2 className="font-display text-3xl font-bold leading-tight">How much investing experience do you have?</h2>
             <div className="mt-6 grid gap-2">
               {EXP.map((o) => (
                 <Choice key={o.v} active={exp === o.v} onClick={() => setExp(o.v)} label={o.label} sub={o.sub} />
@@ -54,7 +55,7 @@ export function Onboarding() {
         )}
         {step === 2 && (
           <>
-            <h2 className="text-2xl font-semibold tracking-tight">What's your main goal?</h2>
+            <h2 className="font-display text-3xl font-bold leading-tight">What's your main goal?</h2>
             <div className="mt-6 grid gap-2">
               {GOALS.map((o) => (
                 <Choice key={o.v} active={goal === o.v} onClick={() => setGoal(o.v)} label={o.label} sub={o.sub} />
@@ -63,11 +64,11 @@ export function Onboarding() {
           </>
         )}
         <div className="mt-8 flex items-center justify-between">
-          <button onClick={() => (step ? setStep(step - 1) : finish())} className="text-sm text-muted hover:text-ink">
+          <button onClick={() => (step ? setStep(step - 1) : finish())} className="h-11 rounded-lg px-2 text-sm text-muted hover:text-ink">
             {step ? "Back" : "Skip"}
           </button>
-          <button onClick={() => (step < 2 ? setStep(step + 1) : finish())} className="inline-flex h-11 items-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-accent-ink hover:brightness-95">
-            {step < 2 ? "Continue" : "Start trading"} <ArrowRight className="size-4" />
+          <button onClick={() => (step < 2 ? setStep(step + 1) : finish())} className="inline-flex h-12 items-center rounded-[10px] bg-accent px-6 font-semibold text-accent-ink hover:brightness-95">
+            {step < 2 ? "Continue" : "Start trading"}
           </button>
         </div>
       </div>
@@ -77,7 +78,7 @@ export function Onboarding() {
 
 function Choice({ active, onClick, label, sub }: { active: boolean; onClick: () => void; label: string; sub: string }) {
   return (
-    <button onClick={onClick} className={cn("rounded-2xl border p-4 text-left transition", active ? "border-transparent bg-accent-soft ring-2 ring-accent" : "border-line hover:bg-panel-2")}>
+    <button onClick={onClick} className={cn("rounded-[10px] border p-4 text-left transition", active ? "border-accent bg-accent-soft ring-1 ring-accent" : "border-line hover:bg-panel-2")}>
       <div className="font-medium">{label}</div>
       <div className="text-sm text-muted">{sub}</div>
     </button>

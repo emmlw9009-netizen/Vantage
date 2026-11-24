@@ -1,4 +1,4 @@
-# Stockpilot — project guide for Claude
+# Vantage — project guide for Claude
 
 AI-coached paper-trading + learning app. Next.js 15 (App Router) · TypeScript · Tailwind v4 · zustand (localStorage persistence) · Anthropic SDK (Claude Opus 5.5) for the coach.
 

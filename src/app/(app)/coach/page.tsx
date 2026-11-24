@@ -101,7 +101,7 @@ function Coach() {
   return (
     <div className="mx-auto flex h-[calc(100dvh-8.5rem)] max-w-3xl flex-col md:h-[calc(100dvh-7rem)]">
       <div className="mb-4 flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-2xl bg-brand text-white shadow-lg"><Sparkles className="size-5" /></span>
+        <span className="grid size-11 place-items-center rounded-2xl bg-coach text-coach-ink"><Sparkles className="size-5" /></span>
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold tracking-tight">Coach Nova</h1>
           <p className="flex items-center gap-1.5 text-xs text-muted">
@@ -131,7 +131,7 @@ function Coach() {
           )}
           {chat.map((m) => (
             <div key={m.id} className={cn("flex gap-3", m.role === "user" && "justify-end")}>
-              {m.role === "assistant" && <span className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-brand text-white"><Sparkles className="size-3.5" /></span>}
+              {m.role === "assistant" && <span className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-coach text-coach-ink"><Sparkles className="size-3.5" /></span>}
               <div className={cn("max-w-[85%] text-[15px] leading-relaxed", m.role === "user" ? "rounded-3xl rounded-br-md bg-ink px-4 py-2.5 text-bg" : "pt-1")}>
                 {m.role === "assistant" ? (
                   m.content ? <Markdown text={m.content} /> : <span className="inline-flex gap-1 py-2"><Dot /><Dot d={150} /><Dot d={300} /></span>

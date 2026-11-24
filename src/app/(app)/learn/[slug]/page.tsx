@@ -133,7 +133,7 @@ export default function LessonPage() {
 
       {mission && (
         <section className="card flex flex-wrap items-center gap-4 p-5">
-          <span className="grid size-11 place-items-center rounded-2xl bg-brand text-white"><Target className="size-5" /></span>
+          <span className="grid size-11 place-items-center rounded-2xl bg-accent text-accent-ink"><Target className="size-5" /></span>
           <div className="min-w-0 flex-1">
             <div className="text-xs font-semibold uppercase tracking-wider text-muted">Practice mission · +{mission.xp} XP</div>
             <div className="font-semibold">{mission.title}</div>

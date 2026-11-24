@@ -72,12 +72,12 @@ export function ReviewCard({ trade, compact = false }: { trade: Trade; compact?:
       <div className="space-y-4 p-4 sm:p-5">
         {trade.reviewStatus === "pending" && (
           <div className="flex items-center gap-2 text-sm text-ink-2">
-            <Sparkles className="size-4 animate-pulse text-brand" /> Nova is reviewing your trade…
+            <Sparkles className="size-4 animate-pulse text-coach" /> Nova is reviewing your trade…
           </div>
         )}
         {r && (
           <div className="rounded-2xl bg-panel-2 p-4">
-            <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-brand">
+            <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-coach">
               <Sparkles className="size-3.5" /> {r.source === "ai" ? "Nova · AI coach" : "Nova · rules engine"}
             </div>
             <div className="font-semibold">{r.headline}</div>

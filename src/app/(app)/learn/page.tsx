@@ -1,5 +1,6 @@
 "use client";
 
+import { BRAND } from "@/lib/brand";
 import Link from "next/link";
 import { CheckCircle2, Circle, Clock, Trophy, Zap } from "lucide-react";
 import { COURSE, ALL_LESSONS, MISSIONS, levelFor } from "@/lib/course";
@@ -18,10 +19,10 @@ export default function Learn() {
 
   return (
     <div className="space-y-6">
-      <section className="card glow relative overflow-hidden p-6 sm:p-8">
+      <section className="card relative overflow-hidden p-6 sm:p-8">
         <div className="relative grid gap-6 md:grid-cols-[1fr_auto] md:items-end">
           <div>
-            <p className="text-sm font-medium text-brand">The Stockpilot course</p>
+            <p className="text-sm font-medium text-accent">The {BRAND.name} course</p>
             <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">From zero to a real trading plan.</h1>
             <p className="mt-2 max-w-xl text-ink-2">Short lessons, quick quizzes and missions you complete in the simulator. Nova connects every lesson to your own trades.</p>
             {nextSlug && (
@@ -101,7 +102,7 @@ export default function Learn() {
                       <span className={cn("block text-sm font-medium", !!missions[m.id] && "text-muted line-through")}>{m.title}</span>
                       <span className="block text-xs text-muted">{m.detail}</span>
                     </span>
-                    <span className="tnum text-xs font-semibold text-brand">+{m.xp}</span>
+                    <span className="tnum text-xs font-semibold text-accent">+{m.xp}</span>
                   </Link>
                 </li>
               ))}
