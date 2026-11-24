@@ -32,3 +32,7 @@ See `CLAUDE.md` for the architecture map and the agent hierarchy (`.claude/agent
 - Optional real market data (Polygon / Alpaca / Finnhub) alongside the simulator.
 - Candlestick charts, indicators (MA overlay, volume), short selling, options basics.
 - Push/email streak reminders, weekly AI performance report, achievements.
+
+## Legal pages (read before launch)
+
+The legal pages (`/terms`, `/privacy`, `/disclaimer`, `/community-guidelines`, `/copyright`, `/accessibility`) are drafted from `docs/legal/research-report.md`. They are **not legal advice**. Have a lawyer review them before public launch. Fill in the bracketed placeholders in `src/lib/legal.ts` (entity name, address, contact email, DMCA agent, governing law, hosting provider, refund policy, arbitration provider, log retention). Register the DMCA agent with the U.S. Copyright Office. Bump `termsVersion` when the Terms or Privacy policy change materially, so users are asked to agree again.

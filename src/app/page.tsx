@@ -2,6 +2,7 @@ import { BRAND } from "@/lib/brand";
 import Link from "next/link";
 import { ArrowRight, CandlestickChart, CheckCircle2, GraduationCap, ShieldAlert, Sparkles, Users, AlertTriangle } from "lucide-react";
 import { Logo } from "@/components/shell";
+import { LEGAL_PAGES } from "@/lib/legal";
 
 const FEATURES = [
   { icon: CandlestickChart, title: "A live market to practice in", body: "18 real companies and index ETFs with simulated prices that tick every two seconds and react to breaking news. Start with $100,000 of paper money." },
@@ -142,7 +143,16 @@ export default function Landing() {
             Open {BRAND.name} <ArrowRight className="size-4" />
           </Link>
         </div>
-        <p className="mt-8 text-center text-xs text-muted">{BRAND.name} is an educational simulator. Prices and news are generated. Nothing here is investment advice.</p>
+        <footer className="mt-8">
+          <p className="text-center text-xs text-muted">{BRAND.name} is an educational simulator. No real money, no real trades. Prices and news are generated. Not investment advice. Not affiliated with or endorsed by any company named.</p>
+          <ul className="mt-2 flex flex-wrap justify-center gap-x-4" aria-label="Legal">
+            {LEGAL_PAGES.map((l) => (
+              <li key={l.href}>
+                <Link href={l.href} className="inline-flex min-h-10 items-center text-sm text-ink-2 underline underline-offset-2 hover:text-ink">{l.label}</Link>
+              </li>
+            ))}
+          </ul>
+        </footer>
       </section>
     </div>
   );

@@ -10,6 +10,7 @@ import { TICKER_MAP } from "@/lib/market-data";
 import { buildCoachContext } from "@/lib/coach-context";
 import { levelFor } from "@/lib/course";
 import { cn, pct, timeAgo } from "@/lib/format";
+import { aiAllowed } from "@/lib/ai-notice";
 import { Avatar, Delta, Pill, Segmented, SectionTitle } from "@/components/ui";
 
 type Tab = "feed" | "leaders" | "challenges";
@@ -23,6 +24,7 @@ const KIND_LABEL: Record<string, string> = { idea: "Trade idea", question: "Ques
 
 async function novaReply(postBody: string): Promise<string> {
   try {
+    if (!(await aiAllowed())) throw new Error("notice not yet seen");
     const res = await fetch("/api/coach", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -150,7 +152,7 @@ function Feed() {
                     <div key={c.id} className="flex gap-2.5">
                       <Avatar id={c.authorId} size={28} />
                       <div className="min-w-0 rounded-2xl bg-panel-2 px-3 py-2 text-sm">
-                        <span className="font-semibold">{c.authorId === ME ? "You" : MEMBER_MAP[c.authorId]?.name}</span>{" "}
+                        <span className="font-semibold">{c.authorId === ME ? "You" : MEMBER_MAP[c.authorId]?.name}</span>{c.authorId === "u7" && <Pill className="mx-1.5 bg-accent-soft text-ink">AI-generated</Pill>}{" "}
                         <CommentBody text={c.body} />
                       </div>
                     </div>

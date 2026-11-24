@@ -9,6 +9,7 @@ import { missionDone } from "@/lib/missions";
 import { rulesReview } from "@/lib/offline-coach";
 import { usd } from "@/lib/format";
 import { scoreLabel } from "@/lib/analysis";
+import { aiAllowed } from "@/lib/ai-notice";
 
 const TICK_MS = 2000;
 const inflight = new Set<string>();
@@ -27,6 +28,11 @@ async function requestReview(tradeId: string) {
   if (!t) return;
   const prices = useMarket.getState().prices;
   try {
+    // In AI mode nothing is sent until the user has seen the data notice; the review stays pending and retries after.
+    if (!(await aiAllowed())) {
+      inflight.delete(tradeId);
+      return;
+    }
     const res = await fetch("/api/review", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -48,6 +54,7 @@ async function requestReview(tradeId: string) {
 export function Providers({ children }: { children: React.ReactNode }) {
   const init = useMarket((s) => s.init);
   const trades = useApp((s) => s.trades);
+  const aiNoticeAt = useApp((s) => s.profile.aiNoticeAt);
   const push = useToast((s) => s.push);
   const seenTrades = useRef<Set<string> | null>(null);
 
@@ -83,7 +90,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         }
       }
     }
-  }, [trades, push]);
+  }, [trades, push, aiNoticeAt]);
 
   // missions
   const orders = useApp((s) => s.orders);

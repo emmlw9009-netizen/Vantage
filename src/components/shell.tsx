@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { CandlestickChart, GraduationCap, House, Moon, NotebookPen, Search, Sparkles, Sun, Users } from "lucide-react";
+import { CandlestickChart, GraduationCap, House, Menu, Moon, NotebookPen, Search, Settings, Sparkles, Sun, Users, X } from "lucide-react";
 import { cn, usd } from "@/lib/format";
 import { BRAND } from "@/lib/brand";
 import { useMarket } from "@/store/market";
@@ -13,6 +13,10 @@ import { useApp, useEquity, STARTING_CASH } from "@/store/app";
 import { Delta, LivePrice, Toaster } from "./ui";
 import { Providers, useHydrated } from "./providers";
 import { Onboarding } from "./onboarding";
+import { ConsentGate } from "./consent";
+import { AiNotice } from "./ai-notice";
+import { Dialog } from "./dialog";
+import { FOOTER_DISCLAIMER } from "@/lib/legal";
 
 const NAV = [
   { href: "/dashboard", label: "Home", icon: House },
@@ -54,6 +58,51 @@ function ThemeToggle() {
     <button onClick={toggle} className="grid size-10 place-items-center rounded-[10px] border border-line text-ink-2 hover:text-ink" aria-label="Toggle theme">
       {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
     </button>
+  );
+}
+
+const FOOTER_LINKS = [
+  { href: "/terms", label: "Terms" },
+  { href: "/privacy", label: "Privacy" },
+  { href: "/disclaimer", label: "Disclaimer" },
+];
+
+function LegalFooter({ className }: { className?: string }) {
+  return (
+    <div className={className}>
+      <p className="text-xs leading-snug text-muted">{FOOTER_DISCLAIMER}</p>
+      <ul className="mt-1 flex flex-wrap gap-x-3" aria-label="Legal">
+        {FOOTER_LINKS.map((l) => (
+          <li key={l.href}>
+            <Link href={l.href} className="inline-flex min-h-8 items-center text-xs font-medium text-ink-2 underline underline-offset-2 hover:text-ink">
+              {l.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function PhoneMenu({ onClose }: { onClose: () => void }) {
+  return (
+    <Dialog title="Menu" onClose={onClose} className="max-w-sm p-5 sm:p-5 [&>h2]:sr-only">
+      <div className="flex items-center justify-between">
+        <span className="font-display text-2xl font-bold">Menu</span>
+        <button onClick={onClose} className="grid size-10 place-items-center rounded-[10px] border border-line text-ink-2" aria-label="Close menu">
+          <X className="size-4" />
+        </button>
+      </div>
+      <nav aria-label="More" className="mt-3 flex flex-col gap-1">
+        <Link href="/settings" onClick={onClose} className="flex h-11 items-center gap-3 rounded-[10px] px-3 text-[15px] font-medium hover:bg-panel-2">
+          <Settings className="size-[18px]" /> Settings
+        </Link>
+      </nav>
+      <div className="mt-3 flex items-center justify-between border-t border-line pt-3 text-sm text-ink-2">
+        Theme <ThemeToggle />
+      </div>
+      <LegalFooter className="mt-3 border-t border-line pt-3" />
+    </Dialog>
   );
 }
 
@@ -172,12 +221,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const hydrated = useHydrated();
   const [mobileSearch, setMobileSearch] = useState(false);
+  const [menu, setMenu] = useState(false);
   const onboarded = useApp((s) => s.profile.onboarded);
 
   return (
     <Providers>
       <div className="flex min-h-dvh">
-        <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line px-4 py-5 md:flex">
+        <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col overflow-y-auto border-r border-line px-4 py-5 md:flex">
           <Logo className="px-2" />
           <nav className="mt-8 flex flex-col gap-1" aria-label="Main">
             {NAV.map((n) => {
@@ -197,6 +247,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
           <div className="mt-auto space-y-3">
             {hydrated && <LevelReadout />}
+            <Link
+              href="/settings"
+              aria-current={path.startsWith("/settings") ? "page" : undefined}
+              className={cn("flex h-11 items-center gap-3 rounded-[10px] px-3 text-[15px] font-medium transition", path.startsWith("/settings") ? "bg-panel text-ink ring-1 ring-line" : "text-ink-2 hover:bg-panel/60 hover:text-ink")}
+            >
+              <Settings className={cn("size-[18px]", path.startsWith("/settings") && "text-accent")} /> Settings
+            </Link>
             <div className="flex items-center justify-between gap-2 border-t border-line pt-3">
               <div className="flex items-center gap-2 text-sm text-ink-2">
                 <span className="relative grid size-2.5 place-items-center">
@@ -207,6 +264,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
               <ThemeToggle />
             </div>
+            <LegalFooter className="border-t border-line pt-3" />
           </div>
         </aside>
 
@@ -227,9 +285,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
             <div className="flex items-center gap-2 sm:ml-auto">
               {hydrated && <AccountValue />}
-              <div className="md:hidden">
-                <ThemeToggle />
-              </div>
+              <button onClick={() => setMenu(true)} className="grid size-10 place-items-center rounded-[10px] border border-line text-ink-2 hover:text-ink md:hidden" aria-label="Menu">
+                <Menu className="size-4" />
+              </button>
             </div>
           </header>
           <main className="mx-auto w-full max-w-[1280px] flex-1 px-4 pb-28 pt-6 sm:px-6 md:pb-12">
@@ -250,7 +308,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
       </div>
       <Toaster />
+      {menu && <PhoneMenu onClose={() => setMenu(false)} />}
       {hydrated && !onboarded && <Onboarding />}
+      <ConsentGate />
+      <AiNotice />
     </Providers>
   );
 }

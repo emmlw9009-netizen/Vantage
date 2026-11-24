@@ -43,7 +43,20 @@ function watch(page, label) {
   page.on("console", (m) => m.type() === "error" && errors.push(`[${label}] console: ${m.text()}`));
 }
 
-const ROUTES = ["/", "/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", "/learn", "/learn/position-sizing", "/coach", "/community"];
+const LEGAL_ROUTES = [
+  ["/terms", "Terms of service"],
+  ["/privacy", "Privacy policy"],
+  ["/disclaimer", "Investment and simulation disclaimer"],
+  ["/community-guidelines", "Community guidelines"],
+  ["/copyright", "Copyright and DMCA policy"],
+  ["/accessibility", "Accessibility statement"],
+];
+const ROUTES = ["/", "/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", "/learn", "/learn/position-sizing", "/coach", "/community", "/settings", ...LEGAL_ROUTES.map((r) => r[0])];
+const TERMS_VERSION = "2026-11-24";
+/** Onboarding step 1 now requires the consent checkbox before Continue or Skip. */
+async function consent(page) {
+  await page.getByLabel(/I.m 18 or older/).check();
+}
 
 (async () => {
   const browser = await chromium.launch();
@@ -56,6 +69,7 @@ const ROUTES = ["/", "/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", 
 
   await page.goto(`${BASE}/dashboard`);
   await page.getByPlaceholder("Your first name").fill("Alex");
+  await consent(page);
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByText("A little").click();
   await page.getByRole("button", { name: "Continue" }).click();
@@ -63,6 +77,7 @@ const ROUTES = ["/", "/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", 
   let s = await state(page);
   check("onboarding saves profile", s.profile.onboarded && s.profile.name === "Alex" && s.profile.experience === "some");
   check("starts with $100,000 cash", s.cash === 100000);
+  check("onboarding stores consent with version and timestamp", s.profile.consent?.version === TERMS_VERSION && !isNaN(Date.parse(s.profile.consent?.acceptedAt)), JSON.stringify(s.profile.consent));
 
   // disciplined bracket trade
   await page.goto(`${BASE}/markets/NVDA`);
@@ -197,6 +212,157 @@ const ROUTES = ["/", "/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", 
   const before = (await state(page)).trades.length;
   await page.reload();
   check("state persists across reload", (await state(page)).trades.length === before);
+
+
+  // ---------------- legal, consent, data controls ----------------
+  console.log("\nLegal pages, consent and data controls");
+  const storageNow = await ctx.storageState();
+  {
+    // legal pages: public, 200, their h1, no app shell and no consent gate
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const p = await c.newPage();
+    watch(p, "legal");
+    for (const [route, h1] of LEGAL_ROUTES) {
+      const res = await p.goto(`${BASE}${route}`);
+      const got = await p.locator("h1").first().innerText().catch(() => "");
+      check(`${route} returns 200 with h1 "${h1}"`, res?.status() === 200 && got === h1, `status ${res?.status()} h1 "${got}"`);
+      const updated = await p.getByText(/^Last updated /).first().isVisible().catch(() => false);
+      if (!updated) check(`${route} shows Last updated`, false);
+    }
+    await p.goto(`${BASE}/terms`);
+    check("legal pages are readable before consent (no modal, no onboarding)", (await p.getByRole("dialog").count()) === 0);
+    check("legal layout links all six pages", (await p.getByRole("navigation", { name: "Legal pages" }).getByRole("link").count()) === 6);
+    const placeholders = await p.locator("main").innerText();
+    check("terms show owner placeholders as-is and the paid-plans clause", placeholders.includes("[Company legal name]") && placeholders.includes("$30 per month") && placeholders.includes("$60 per month") && placeholders.includes("[refund policy]"));
+    await p.goto(`${BASE}/privacy`);
+    const priv = await p.locator("main").innerText();
+    check("privacy names the AI provider and planned processors", ["Anthropic", "Supabase", "Resend", "Stripe", "Meta", "[hosting provider]"].every((w) => priv.includes(w)));
+    await c.close();
+  }
+  {
+    // clickwrap: the app cannot be used before consent
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const p = await c.newPage();
+    watch(p, "consent");
+    await p.goto(`${BASE}/dashboard`);
+    const box = p.getByLabel(/I.m 18 or older/);
+    await box.waitFor();
+    check("consent checkbox starts unchecked", !(await box.isChecked()));
+    check("Continue is disabled until the box is ticked", await p.getByRole("button", { name: "Continue" }).isDisabled());
+    check("Skip never skips consent", await p.getByRole("button", { name: "Skip" }).isDisabled());
+    const hrefs = await p.locator('label[for="consent"] a').evaluateAll((as) => as.map((a) => [a.getAttribute("href"), a.getAttribute("target")]));
+    check("consent links open Terms and Privacy in a new tab", hrefs.length === 2 && hrefs[0][0] === "/terms" && hrefs[1][0] === "/privacy" && hrefs.every((h) => h[1] === "_blank"), JSON.stringify(hrefs));
+    await p.getByPlaceholder("Your first name").fill("Casey");
+    await p.getByPlaceholder("Your first name").press("Enter");
+    check("Enter in the name field does not bypass consent", await p.getByRole("button", { name: "Continue" }).isDisabled());
+    check("nothing is stored before consent", !(await state(p))?.profile?.onboarded);
+    await box.check();
+    check("ticking the box enables Continue", await p.getByRole("button", { name: "Continue" }).isEnabled());
+    await p.getByRole("button", { name: "Skip" }).click();
+    await p.waitForFunction(() => JSON.parse(localStorage.getItem("sp-app") || "{}").state?.profile?.onboarded === true);
+    const st = await state(p);
+    check("Skip after consent finishes with consent recorded", st.profile.consent?.version === TERMS_VERSION && st.profile.name === "Casey");
+    check("offline mode shows no AI data notice", (await p.getByRole("dialog").count()) === 0 && !st.profile.aiNoticeAt);
+    // footer disclaimer in the rail
+    check("rail shows the simulated-data disclaimer and legal links", (await p.getByText("Simulated prices and news. Educational only, not investment advice.").first().isVisible()) && (await p.getByRole("list", { name: "Legal" }).getByRole("link").count()) === 3);
+    // coach page labels
+    await p.goto(`${BASE}/coach`);
+    await p.getByRole("link", { name: /AI coach limits and disclaimer/ }).waitFor();
+    check("coach page links the disclaimer", (await p.getByRole("link", { name: /AI coach limits and disclaimer/ }).getAttribute("href")) === "/disclaimer");
+    await c.close();
+  }
+  {
+    // existing users with missing or outdated consent are blocked by ConsentGate
+    for (const [label, mutate] of [
+      ["missing", (s) => { delete s.state.profile.consent; }],
+      ["outdated", (s) => { s.state.profile.consent = { version: "2000-01-01", acceptedAt: new Date().toISOString() }; }],
+    ]) {
+      const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+      const p = await c.newPage();
+      watch(p, `gate-${label}`);
+      await p.addInitScript(([m]) => {
+        if (sessionStorage.getItem("gate-patched")) return;
+        sessionStorage.setItem("gate-patched", "1");
+        const raw = localStorage.getItem("sp-app");
+        if (!raw) return;
+        const s = JSON.parse(raw);
+        new Function("s", m)(s);
+        localStorage.setItem("sp-app", JSON.stringify(s));
+      }, [label === "missing" ? "delete s.state.profile.consent;" : 's.state.profile.consent = { version: "2000-01-01", acceptedAt: new Date().toISOString() };']);
+      await p.goto(`${BASE}/dashboard`);
+      const dlg = p.getByRole("dialog");
+      await dlg.waitFor({ timeout: 8000 }).catch(() => {});
+      check(`consent gate blocks the app (${label} consent)`, await dlg.isVisible());
+      const agree = p.getByRole("button", { name: "Agree and continue" });
+      check(`gate agree button is disabled until ticked (${label})`, await agree.isDisabled());
+      await p.getByLabel(/I.m 18 or older/).check();
+      await agree.click();
+      await p.waitForFunction((v) => JSON.parse(localStorage.getItem("sp-app")).state.profile.consent?.version === v, TERMS_VERSION);
+      check(`agreeing in the gate records the current version (${label})`, (await p.getByRole("dialog").count()) === 0);
+      await c.close();
+    }
+  }
+  {
+    // AI data notice: only when the server reports AI mode
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+    const p = await c.newPage();
+    watch(p, "ai-notice");
+    await p.route("**/api/coach", (route) => (route.request().method() === "GET" ? route.fulfill({ json: { mode: "ai" } }) : route.continue()));
+    await p.goto(`${BASE}/dashboard`);
+    const dlg = p.getByRole("dialog", { name: "Nova uses an AI service" });
+    await dlg.waitFor({ timeout: 8000 }).catch(() => {});
+    check("AI mode shows the data notice with what is sent and to whom", (await dlg.isVisible()) && (await dlg.innerText()).includes("Anthropic") && (await dlg.getByRole("link", { name: "Privacy Policy" }).count()) === 1);
+    await dlg.getByRole("button", { name: "I understand" }).click();
+    await p.waitForFunction(() => !!JSON.parse(localStorage.getItem("sp-app")).state.profile.aiNoticeAt);
+    check("acknowledging stores aiNoticeAt and closes the notice", (await p.getByRole("dialog").count()) === 0);
+    await p.reload();
+    await p.waitForTimeout(1200);
+    check("the AI notice is shown only once", (await p.getByRole("dialog").count()) === 0);
+    await c.close();
+  }
+  {
+    // settings: export, theme, reset, delete
+    const c = await browser.newContext({ viewport: { width: 1440, height: 1000 }, storageState: storageNow, acceptDownloads: true });
+    const p = await c.newPage();
+    watch(p, "settings");
+    await p.goto(`${BASE}/settings`);
+    await p.getByText("Plan: Free").waitFor({ timeout: 8000 }).catch(() => {});
+    check("settings shows the plan placeholder", await p.getByText("Plan: Free").isVisible());
+    const [dl] = await Promise.all([p.waitForEvent("download"), p.getByRole("button", { name: "Export my data" }).click()]);
+    const file = await dl.path();
+    const json = JSON.parse(fs.readFileSync(file, "utf8"));
+    check("export downloads a timestamped JSON of both stores", /^vantage-data-\d{8}-\d{6}\.json$/.test(dl.suggestedFilename()) && !!json.stores["sp-app"]?.state?.trades && !!json.stores["sp-market"]?.state?.prices, dl.suggestedFilename());
+    await p.getByRole("radio", { name: "Light" }).click();
+    check("theme choice applies", (await p.evaluate(() => document.documentElement.dataset.theme)) === "light");
+    await p.getByRole("button", { name: "Reset practice account" }).click();
+    await p.getByRole("dialog").getByRole("button", { name: "Reset account" }).click();
+    const rs = await state(p);
+    check("reset practice account restores cash and clears trades", rs.cash === 100000 && rs.trades.length === 0 && rs.profile.onboarded === true);
+    await p.getByRole("button", { name: "Delete all my data" }).click();
+    const del = p.getByRole("dialog").getByRole("button", { name: "Delete everything" });
+    check("delete is disabled until DELETE is typed", await del.isDisabled());
+    await p.getByLabel("Type DELETE to confirm").fill("delete");
+    check("delete requires the exact word DELETE", await del.isDisabled());
+    await p.getByLabel("Type DELETE to confirm").fill("DELETE");
+    await del.click();
+    await p.getByLabel(/I.m 18 or older/).waitFor({ timeout: 10000 });
+    const after = await state(p);
+    const marketAfter = await p.evaluate(() => localStorage.getItem("sp-market"));
+    check("delete clears both stores and returns to onboarding", (!after || (!after.profile.onboarded && !after.profile.consent && after.trades.length === 0 && after.profile.name === "")) && (await p.getByText("Welcome to Vantage").isVisible()), `sp-market ${marketAfter ? "rewritten fresh" : "empty"}`);
+    check("delete also removes the saved theme", (await p.evaluate(() => localStorage.getItem("sp-theme"))) === null);
+    await c.close();
+  }
+  {
+    // phone menu: settings, disclaimer, legal links
+    const c = await browser.newContext({ ...devices["iPhone 14"], storageState: storageNow });
+    const p = await c.newPage();
+    watch(p, "phone-menu");
+    await p.goto(`${BASE}/dashboard`);
+    await p.getByRole("button", { name: "Menu" }).click();
+    const m = p.getByRole("dialog");
+    check("phone menu has Settings, the disclaimer and legal links", (await m.getByRole("link", { name: "Settings" }).isVisible()) && (await m.getByText("Simulated prices and news. Educational only, not investment advice.").isVisible()) && (await m.getByRole("link", { name: "Terms" }).isVisible()) && (await m.getByRole("link", { name: "Privacy" }).isVisible()) && (await m.getByRole("link", { name: "Disclaimer" }).isVisible()));
+    await c.close();
+  }
 
   // ---------------- every page × theme × device ----------------
   console.log("\nPages, themes, devices, links");

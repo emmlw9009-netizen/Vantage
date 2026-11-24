@@ -97,6 +97,10 @@ export interface Profile {
   experience: "new" | "some" | "experienced";
   goal: "learn" | "long-term" | "active";
   onboarded: boolean;
+  /** Clickwrap record: which terms version was accepted and when (ISO string). */
+  consent?: { version: string; acceptedAt: string };
+  /** ISO time the user saw the AI data notice (only shown when the AI coach is on). */
+  aiNoticeAt?: string;
 }
 
 interface AppState {

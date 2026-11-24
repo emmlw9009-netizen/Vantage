@@ -79,6 +79,7 @@ export function ReviewCard({ trade, compact = false }: { trade: Trade; compact?:
           <div className="border-l-[3px] border-coach pl-4">
             <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-coach">
               <Sparkles className="size-3.5" /> {r.source === "ai" ? "Nova, AI coach" : "Nova, rules engine"}
+              <Link href="/disclaimer" className="ml-1 text-xs font-normal text-ink-2 underline underline-offset-2 hover:text-ink">AI coach disclaimer</Link>
             </div>
             <div className="font-display text-lg font-semibold leading-snug">{r.headline}</div>
             <p className="mt-1.5 font-serif text-[17px] leading-relaxed text-ink">{r.summary}</p>

@@ -9,6 +9,8 @@ import { offlineAnswer } from "@/lib/offline-coach";
 import { LESSON_MAP } from "@/lib/course";
 import { Markdown } from "@/components/ui";
 import { cn, usd } from "@/lib/format";
+import Link from "next/link";
+import { aiAllowed } from "@/lib/ai-notice";
 
 const STARTERS = [
   "Review my portfolio. What's my biggest risk right now?",
@@ -62,6 +64,7 @@ function Coach() {
   const send = async (text: string) => {
     const q = text.trim();
     if (!q || busy) return;
+    if (!(await aiAllowed())) return; // the AI data notice is showing; keep the draft
     setInput("");
     setBusy(true);
     pushChat({ role: "user", content: q });
@@ -104,9 +107,10 @@ function Coach() {
         <span className="grid size-11 place-items-center rounded-2xl bg-coach text-coach-ink"><Sparkles className="size-5" /></span>
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold tracking-tight">Coach Nova</h1>
-          <p className="flex items-center gap-1.5 text-xs text-muted">
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted">
             <span className={cn("size-1.5 rounded-full", mode === "ai" ? "bg-up" : "bg-warn")} />
-            {mode === "ai" ? "AI coach · sees your portfolio, trades and progress" : mode === "offline" ? "Offline mode · add an API key for full AI coaching" : "Connecting…"}
+            <span>{mode === "ai" ? "AI coach: sees your portfolio, trades and progress" : mode === "offline" ? "Nova, rules engine: add an API key for the AI coach" : "Connecting…"}</span>
+            <Link href="/disclaimer" className="font-medium text-series-1 underline underline-offset-2">AI coach limits and disclaimer</Link>
           </p>
         </div>
         {chat.length > 0 && (
@@ -170,7 +174,13 @@ function Coach() {
               <ArrowUp className="size-5" />
             </button>
           </div>
-          <p className="mt-2 text-center text-[11px] text-muted">Educational coaching on a simulated market. Not financial advice.</p>
+          <p className="mt-2 text-center text-xs text-muted">
+            {mode !== "offline" ? (
+              <>Nova is an AI coach. It can be wrong. Not investment advice. Your portfolio, trades, name and messages are sent to our AI provider (<Link href="/privacy#ai" className="underline underline-offset-2">privacy policy</Link>).</>
+            ) : (
+              <>Educational coaching on a simulated market. Not investment advice. No AI provider receives what you write here.</>
+            )}
+          </p>
         </form>
       </div>
     </div>
