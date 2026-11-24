@@ -4,11 +4,11 @@ import Link from "next/link";
 import { cn } from "@/lib/format";
 import { DrawPath } from "./motion/draw-path";
 import { CHECKS, checkSummary, type CheckId, type CheckState } from "@/lib/trade-checks";
+import { BOX, LOOP_D, TICK_D } from "@/lib/marks-geometry";
+export { TICK_D };
 
 /* Nova's blue-pencil marks (docs/design/direction.md §7). Geometry is part of the signature: keep the overshooting tick. */
 
-export const TICK_D = "M5.5 14.5 L9.25 18.25 L21.5 2.5";
-const BOX = { x: 2.75, y: 6.75, w: 14.5, h: 14.5 };
 
 /** Gain/loss triangle. Text colour comes from the parent. */
 export function Tri({ up, className }: { up: boolean; className?: string }) {
@@ -59,7 +59,6 @@ export function tierFor(score: number): { label: string; risk: boolean } {
   return { label: "High risk", risk: true };
 }
 
-const LOOP_D = "M60 15 C52 5 22 4 11 13 C2 21 6 36 24 41 C42 46 63 40 66 27 C68 18 61 10 49 8";
 const LOOP_SIZES = { s: { w: 44, h: 30, f: "text-[14px]" }, m: { w: 72, h: 48, f: "text-[24px]" }, l: { w: 120, h: 80, f: "text-[36px]" } } as const;
 
 /** The process score with Nova's hand-drawn loop around it. */

@@ -524,6 +524,8 @@ async function consent(page) {
     watch(p, "landing-example");
     await p.goto(`${BASE}/`);
     check("landing labels the mock quote and mock review as examples", (await p.getByText("Example, simulated price").isVisible()) && (await p.getByText(/Example, not a real user review/).isVisible()) && (await p.getByText(/Example screen with made-up numbers/).isVisible()));
+    await p.waitForTimeout(3000);
+    check("landing hero motion finishes and never leaves content hidden", (await p.evaluate(() => document.documentElement.dataset.hero ?? "")) === "" && (await p.getByRole("heading", { level: 1 }).isVisible()));
     check("landing hero states it is a simulator, not advice", await p.getByText("Vantage is an educational simulator. No real money, no real trades. Not investment advice.").first().isVisible());
     await c.close();
   }
@@ -627,14 +629,16 @@ async function consent(page) {
   }
 
   // ---------------- every page × theme × device ----------------
+  // Screenshots use reduced motion so they show final states (and exercise the reduced-motion paths);
+  // the landing hero animation is checked separately with motion on.
   console.log("\nPages, themes, devices, links");
   const storage = await ctx.storageState();
   const links = new Set();
   for (const [label, opts] of [
-    ["desktop-dark", { viewport: { width: 1440, height: 1000 }, colorScheme: "dark" }],
-    ["desktop-light", { viewport: { width: 1440, height: 1000 }, colorScheme: "light" }],
-    ["phone-dark", { ...devices["iPhone 14"], colorScheme: "dark" }],
-    ["phone-light", { ...devices["iPhone 14"], colorScheme: "light" }],
+    ["desktop-dark", { viewport: { width: 1440, height: 1000 }, colorScheme: "dark", reducedMotion: "reduce" }],
+    ["desktop-light", { viewport: { width: 1440, height: 1000 }, colorScheme: "light", reducedMotion: "reduce" }],
+    ["phone-dark", { ...devices["iPhone 14"], colorScheme: "dark", reducedMotion: "reduce" }],
+    ["phone-light", { ...devices["iPhone 14"], colorScheme: "light", reducedMotion: "reduce" }],
   ]) {
     const c = await browser.newContext({ ...opts, storageState: storage });
     const p = await c.newPage();
