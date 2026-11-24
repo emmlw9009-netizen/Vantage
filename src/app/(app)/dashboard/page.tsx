@@ -16,6 +16,8 @@ import { tradeChecks } from "@/lib/trade-checks";
 import { pct, timeAgo, usd } from "@/lib/format";
 import { EmptyLedger } from "@/components/empty-ledger";
 
+const listJoin = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}` : xs[0] ?? "");
+
 function useCoachBrief() {
   const positions = useApp((s) => s.positions);
   const orders = useApp((s) => s.orders);
@@ -29,7 +31,7 @@ function useCoachBrief() {
     const unprotected = pos.filter((p) => !orders.some((o) => o.status === "open" && o.symbol === p.symbol && o.role === "stop-loss"));
     if (unprotected.length)
       tips.push({
-        body: `${unprotected.map((p) => p.symbol).join(" and ")} ${unprotected.length > 1 ? "have" : "has"} no stop-loss. Pick the price where your reason stops being true and put the stop there.`,
+        body: `${listJoin(unprotected.map((p) => p.symbol))} ${unprotected.length > 1 ? "have" : "has"} no stop-loss. Pick the price where your reason stops being true and put the stop there.`,
         href: `/markets/${unprotected[0].symbol}`,
         cta: `Set a stop on ${unprotected[0].symbol}`,
       });

@@ -72,29 +72,10 @@
   --scrim: rgba(0, 0, 0, 0.55);
 }
 
-/* Semantic roles and legacy aliases (the legacy names keep older markup working during the migration). */
+/* Semantic roles: gains are written "in the black", losses in red pencil. Change here, nowhere else. */
 :root {
   --gain: var(--ink);
   --loss: var(--red);
-  --bg: var(--paper);
-  --panel: var(--sheet);
-  --panel-2: var(--well);
-  --line: var(--rule);
-  --line-strong: var(--rule-strong);
-  --accent: var(--ink);
-  --accent-ink: var(--on-ink);
-  --accent-soft: var(--well);
-  --coach: var(--pencil);
-  --coach-ink: var(--sheet);
-  --up: var(--gain);
-  --down: var(--loss);
-  --warn: var(--ink);
-  --good-bg: transparent;
-  --warn-bg: transparent;
-  --risk-bg: transparent;
-  --axis: var(--rule-strong);
-  --chart-surface: var(--paper);
-  --shadow: var(--shadow-float);
 }
 
 @theme inline {
@@ -116,23 +97,6 @@
   --color-series-1: var(--series-1);
   --color-series-2: var(--series-2);
   --color-grid: var(--grid);
-  /* legacy */
-  --color-bg: var(--paper);
-  --color-panel: var(--sheet);
-  --color-panel-2: var(--well);
-  --color-line: var(--rule);
-  --color-line-strong: var(--rule-strong);
-  --color-accent: var(--ink);
-  --color-accent-ink: var(--on-ink);
-  --color-accent-soft: var(--well);
-  --color-coach: var(--pencil);
-  --color-coach-ink: var(--sheet);
-  --color-up: var(--gain);
-  --color-down: var(--loss);
-  --color-warn: var(--ink);
-  --color-good-bg: transparent;
-  --color-warn-bg: transparent;
-  --color-risk-bg: transparent;
   --font-sans: "Archivo Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: "Archivo Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-serif: "Literata Variable", Georgia, "Times New Roman", serif;
@@ -291,22 +255,19 @@ input[type="number"]::-webkit-inner-spin-button {
 @layer components {
 /* ---------------- surfaces ---------------- */
 /* Level 1 sheet: things you hold (the order ticket). */
-.sheet,
-.card {
+.sheet {
   background: var(--sheet);
   border: 1px solid var(--edge);
   border-radius: 10px;
 }
 /* Level 2: things that float (dialogs, menus, toasts, tooltips). */
-.float,
-.popover {
+.float {
   background: var(--sheet);
   border: 1px solid var(--edge);
   border-radius: 10px;
   box-shadow: var(--shadow-float);
 }
-.well,
-.inset {
+.well {
   background: var(--well);
   border-radius: 6px;
 }

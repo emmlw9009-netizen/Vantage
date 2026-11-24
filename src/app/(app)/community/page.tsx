@@ -356,7 +356,7 @@ function Leaderboard() {
               <div className="t-micro text-ink-2">{pct(r.winRate, 0, false)} wins</div>
             </div>
             {r.id !== ME ? (
-              <button onClick={() => toggleFollow(r.id)} aria-pressed={!!following[r.id]} className="btn btn-secondary hidden min-h-9 px-3 t-small sm:inline-flex">
+              <button onClick={() => toggleFollow(r.id)} aria-pressed={!!following[r.id]} className="btn btn-secondary hidden min-h-10 px-3 t-small sm:inline-flex">
                 {following[r.id] ? "Following" : "Follow"}
               </button>
             ) : (

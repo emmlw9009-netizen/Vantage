@@ -79,7 +79,7 @@ export default function Markets() {
                       <Delta ratio={change(t.symbol)} />
                     </td>
                     <td className="hidden py-2.5 text-right lg:table-cell">
-                      <button onClick={() => toggleWatch(t.symbol)} aria-pressed={on} className={cn("btn min-h-9 px-2.5 t-small font-medium", on ? "btn-secondary" : "btn-quiet text-ink-2")}>
+                      <button onClick={() => toggleWatch(t.symbol)} aria-pressed={on} className={cn("btn min-h-10 px-2.5 t-small font-medium", on ? "btn-secondary" : "btn-quiet text-ink-2")}>
                         {on ? "Watching" : "Watch"}
                         <span className="sr-only"> {t.symbol}</span>
                       </button>
