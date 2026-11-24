@@ -2,133 +2,135 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AlertTriangle, BookOpen, CheckCircle2, MessageCircle, Share2, ShieldAlert, Sparkles } from "lucide-react";
 import type { Trade } from "@/store/app";
 import { useApp } from "@/store/app";
 import { scoreLabel, FlagTone } from "@/lib/analysis";
 import { LESSON_MAP } from "@/lib/course";
 import { cn, timeAgo, usd } from "@/lib/format";
-import { ScoreGauge, Pill, Delta } from "./ui";
+import { tradeChecks } from "@/lib/trade-checks";
+import { Delta } from "./ui";
+import { CheckStrip, MARK_WORD, MarkGlyph, NovaByline, ScoreLoop } from "./marks";
 
-const TONE: Record<FlagTone, { icon: typeof CheckCircle2; cls: string; label: string }> = {
-  good: { icon: CheckCircle2, cls: "bg-good-bg text-up", label: "Good" },
-  warn: { icon: AlertTriangle, cls: "bg-warn-bg text-warn", label: "Watch" },
-  risk: { icon: ShieldAlert, cls: "bg-risk-bg text-down", label: "Risk" },
-};
+const ROLE_WORD: Record<string, string> = { "stop-loss": "Stop-loss exit", "take-profit": "Take-profit exit" };
+const ORDER: Record<FlagTone, number> = { risk: 0, warn: 1, good: 2 };
 
+/** One of Nova's marks with its finding and, when there is one, the lesson that fixes it. */
 export function FlagRow({ tone, title, detail, lesson }: { tone: FlagTone; title: string; detail?: string; lesson?: string }) {
-  const T = TONE[tone];
   return (
-    <div className="flex gap-3">
-      <span className={cn("mt-0.5 grid size-6 shrink-0 place-items-center rounded-full", T.cls)} title={T.label}>
-        <T.icon className="size-3.5" aria-label={T.label} />
-      </span>
-      <div className="min-w-0 text-sm">
-        <div className="font-medium">{title}</div>
-        {detail && <div className="text-ink-2">{detail}</div>}
+    <li className="flex gap-3">
+      <MarkGlyph kind={tone} className="mt-0.5" />
+      <div className="min-w-0 t-small">
+        <span className="sr-only">{MARK_WORD[tone]}: </span>
+        <span className="font-medium text-ink">{title}</span>
+        {detail && <span className="block text-ink-2">{detail}</span>}
         {lesson && LESSON_MAP[lesson] && (
-          <Link href={`/learn/${lesson}`} className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-series-1 hover:underline">
-            <BookOpen className="size-3" /> {LESSON_MAP[lesson].title}
+          <Link href={`/learn/${lesson}`} className="link mt-0.5 inline-block t-small text-ink">
+            Lesson: {LESSON_MAP[lesson].title}
           </Link>
         )}
       </div>
-    </div>
+    </li>
   );
 }
 
-export function ReviewCard({ trade, compact = false }: { trade: Trade; compact?: boolean }) {
+/** The marked ticket: the trade line, its five checks, the score loop, then Nova's notes in the margin. */
+export function ReviewCard({ trade, compact = false, headingLevel = "h3" }: { trade: Trade; compact?: boolean; headingLevel?: "h2" | "h3" }) {
   const addPost = useApp((s) => s.addPost);
   const [shared, setShared] = useState(false);
   const r = trade.review;
+  const checks = tradeChecks(trade);
+  const H = headingLevel;
 
   const share = () => {
     addPost({
       kind: trade.realizedPnl && trade.realizedPnl > 0 ? "win" : trade.realizedPnl && trade.realizedPnl < 0 ? "lesson" : "idea",
-      body: `${trade.side === "buy" ? "Bought" : "Sold"} ${trade.qty} ${trade.symbol} @ ${usd(trade.price)}. Coach score ${trade.score} (${scoreLabel(trade.score)}).${trade.thesis ? `\n\nThesis: ${trade.thesis}` : ""}${r ? `\n\nCoach: ${r.headline}` : ""}`,
+      body: `${trade.side === "buy" ? "Bought" : "Sold"} ${trade.qty} ${trade.symbol} at ${usd(trade.price)}. Process score ${trade.score} (${scoreLabel(trade.score)}).${trade.thesis ? `\n\nThesis: ${trade.thesis}` : ""}${r ? `\n\nCoach: ${r.headline}` : ""}`,
       symbol: trade.symbol,
       tradeId: trade.id,
     });
     setShared(true);
   };
 
+  const flags = [...trade.flags].sort((a, b) => ORDER[a.tone] - ORDER[b.tone]);
+
   return (
-    <div className="card overflow-hidden">
-      <div className="flex items-center gap-4 border-b border-line p-4 sm:p-5">
-        <ScoreGauge score={trade.score} size={76} />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-ink-2">Coach review</span>
-            <Pill>{scoreLabel(trade.score)}</Pill>
-            {trade.realizedPnl != null && <Delta value={trade.realizedPnl} size="xs" />}
+    <article className="border-t border-rule-strong pt-4" aria-label={`Coach review of ${trade.side === "buy" ? "buying" : "selling"} ${trade.qty} ${trade.symbol}`}>
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0">
+          <div className="flex items-baseline gap-3 t-small text-ink-2">
+            <span className="font-medium">Coach review</span>
+            <span className="t-micro text-muted">{timeAgo(trade.at)}</span>
           </div>
-          <div className="mt-1 truncate font-semibold">
-            {trade.side === "buy" ? "Bought" : "Sold"} {trade.qty} {trade.symbol} @ {usd(trade.price)}
-            {trade.role !== "entry" && trade.role !== "exit" && <span className="font-normal text-muted"> · {trade.role}</span>}
+          <H className="mt-1 t-h3">
+            {trade.side === "buy" ? "Bought" : "Sold"} {trade.qty} {trade.symbol} at <span className="tnum">{usd(trade.price)}</span>
+          </H>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 t-small text-ink-2">
+            {ROLE_WORD[trade.role] && <span>{ROLE_WORD[trade.role]}</span>}
+            {trade.realizedPnl != null && (
+              <span className="inline-flex items-center gap-1.5">
+                Realized <Delta value={trade.realizedPnl} />
+              </span>
+            )}
           </div>
-          <div className="text-xs text-muted">{timeAgo(trade.at)}</div>
+          {checks && <CheckStrip checks={checks} labeled size={24} className="mt-3" />}
         </div>
+        <ScoreLoop score={trade.score} size="m" draw={trade.reviewStatus === "done" && Date.now() - trade.at < 20_000} />
       </div>
 
-      <div className="space-y-4 p-4 sm:p-5">
-        {trade.reviewStatus === "pending" && (
-          <div className="flex items-center gap-2 text-sm text-ink-2">
-            <Sparkles className="size-4 animate-pulse text-coach" /> Nova is reviewing your trade…
-          </div>
-        )}
+      <div className="nova-note mt-5">
+        <NovaByline disclaimer extra={r?.source === "rules" ? <span className="t-micro text-ink-2">Checked with the built-in playbook</span> : undefined} />
+        {trade.reviewStatus === "pending" && <p className="mt-2 t-small text-ink-2">Nova is reviewing this trade.</p>}
         {r && (
-          <div className="border-l-[3px] border-coach pl-4">
-            <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-coach">
-              <Sparkles className="size-3.5" /> {r.source === "ai" ? "Nova, AI coach" : "Nova, rules engine"}
-              <Link href="/disclaimer" className="ml-1 text-xs font-normal text-ink-2 underline underline-offset-2 hover:text-ink">AI coach disclaimer</Link>
-            </div>
-            <div className="font-display text-lg font-semibold leading-snug">{r.headline}</div>
-            <p className="mt-1.5 font-serif text-[17px] leading-relaxed text-ink">{r.summary}</p>
+          <div className="mt-2">
+            <p className="t-h3">{r.headline}</p>
+            <p className="t-note mt-1 max-w-[66ch] text-ink">{r.summary}</p>
             {!compact && (r.didWell.length > 0 || r.improve.length > 0) && (
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                {r.didWell.length > 0 && (
-                  <div>
-                    <h4 className="mb-1.5 text-sm font-semibold">Did well</h4>
-                    <ul className="space-y-1.5 text-sm">
-                      {r.didWell.map((x, i) => (
-                        <li key={i} className="flex gap-2"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-up" aria-hidden />{x}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {r.improve.length > 0 && (
-                  <div>
-                    <h4 className="mb-1.5 text-sm font-semibold">Improve</h4>
-                    <ul className="space-y-1.5 text-sm">
-                      {r.improve.map((x, i) => (
-                        <li key={i} className="flex gap-2"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />{x}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
+              <ul className="mt-3 space-y-2">
+                {r.improve.map((x, i) => (
+                  <li key={`i${i}`} className="flex gap-3 t-small">
+                    <MarkGlyph kind="warn" className="mt-0.5" />
+                    <span className="min-w-0">
+                      <span className="sr-only">Watch: </span>
+                      {x}
+                    </span>
+                  </li>
+                ))}
+                {r.didWell.map((x, i) => (
+                  <li key={`d${i}`} className="flex gap-3 t-small">
+                    <MarkGlyph kind="good" className="mt-0.5" />
+                    <span className="min-w-0">
+                      <span className="sr-only">Good: </span>
+                      {x}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
-            <p className="mt-4 text-sm">
-              <span className="font-semibold">Next step: </span>
-              {r.nextStep}
-            </p>
           </div>
         )}
-        {!compact && (
-          <div className="space-y-3">
-            {trade.flags.map((f) => (
+        {!compact && flags.length > 0 && (
+          <ul className="mt-4 space-y-3">
+            {flags.map((f) => (
               <FlagRow key={f.id} {...f} />
             ))}
-          </div>
+          </ul>
         )}
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Link href={`/coach?trade=${trade.id}`} className="inline-flex h-10 items-center gap-1.5 rounded-full border border-line px-3.5 text-sm font-medium hover:bg-panel-2">
-            <MessageCircle className="size-4" /> Ask Nova about this
-          </Link>
-          <button onClick={share} disabled={shared} className="inline-flex h-10 items-center gap-1.5 rounded-full border border-line px-3.5 text-sm font-medium hover:bg-panel-2 disabled:opacity-60">
-            <Share2 className="size-4" /> {shared ? "Shared to community" : "Share to community"}
-          </button>
-        </div>
+        {r && (
+          <p className="mt-4 t-small">
+            <span className="font-semibold">Next: </span>
+            {r.nextStep}
+          </p>
+        )}
       </div>
-    </div>
+
+      <div className={cn("mt-5 flex flex-wrap gap-2", compact && "mt-4")}>
+        <Link href={`/coach?trade=${trade.id}`} className="btn btn-secondary">
+          Ask Nova about this
+        </Link>
+        <button onClick={share} disabled={shared} className="btn btn-secondary">
+          {shared ? "Shared to community" : "Share to community"}
+        </button>
+      </div>
+    </article>
   );
 }

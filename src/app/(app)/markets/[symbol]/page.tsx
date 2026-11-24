@@ -3,24 +3,37 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { ArrowLeft, Info, Star } from "lucide-react";
 import { TICKER_MAP } from "@/lib/market-data";
+import type { Bar } from "@/lib/market-data";
 import { useMarket, getHistory } from "@/store/market";
 import { useApp } from "@/store/app";
 import { PriceChart } from "@/components/price-chart";
 import { OrderTicket } from "@/components/order-ticket";
 import { ReviewCard } from "@/components/review-card";
 import { NewsFeed } from "@/components/news-feed";
-import { Delta, LivePrice, Segmented, SectionTitle } from "@/components/ui";
-import { cn, usd } from "@/lib/format";
+import { Delta, Segmented, SectionTitle } from "@/components/ui";
+import { AnimatedNumber } from "@/components/motion/animated-number";
+import { usd } from "@/lib/format";
 
 type Range = "1D" | "1M" | "3M" | "1Y";
 
 function volWord(v: number) {
-  if (v < 0.18) return "Low — moves gently";
+  if (v < 0.18) return "Low. It moves gently";
   if (v < 0.3) return "Moderate";
-  if (v < 0.45) return "High — expect big swings";
-  return "Very high — can move 5%+ in a day";
+  if (v < 0.45) return "High. Expect big swings";
+  return "Very high. It can move 5% or more in a day";
+}
+
+/** Rolling 50-close average over the full history; only points where 50 closes exist. */
+function movingAverage(hist: Bar[], n = 50): Bar[] {
+  const out: Bar[] = [];
+  let sum = 0;
+  for (let i = 0; i < hist.length; i++) {
+    sum += hist[i].c;
+    if (i >= n) sum -= hist[i - n].c;
+    if (i >= n - 1) out.push({ t: hist[i].t, c: sum / n });
+  }
+  return out;
 }
 
 export default function SymbolPage() {
@@ -35,120 +48,140 @@ export default function SymbolPage() {
   const watch = useApp((s) => s.watchlist.includes(symbol));
   const toggleWatch = useApp((s) => s.toggleWatch);
   const [range, setRange] = useState<Range>("1D");
+  const [showMa, setShowMa] = useState(false);
   const [justFilled, setJustFilled] = useState<string | null>(null);
 
+  const hist = useMemo(() => (t ? getHistory(symbol) : []), [t, symbol]);
   const data = useMemo(() => {
     if (!t) return [];
     if (range === "1D") return intraday ?? [];
-    const hist = getHistory(symbol);
     const n = range === "1M" ? 22 : range === "3M" ? 64 : hist.length;
     const slice = hist.slice(-n);
     return price ? [...slice.slice(0, -1), { t: Date.now(), c: price }] : slice;
-  }, [t, range, intraday, symbol, price]);
+  }, [t, range, intraday, hist, price]);
+  const ma = useMemo(() => movingAverage(hist), [hist]);
 
   if (!t)
     return (
-      <div className="card p-8 text-center">
-        <p className="font-semibold">We don&apos;t have {symbol} in the simulator yet.</p>
-        <Link href="/markets" className="mt-2 inline-block text-series-1 hover:underline">Back to markets</Link>
+      <div className="max-w-xl">
+        <h1 className="t-title">{symbol || "Unknown"}</h1>
+        <p className="mt-3 t-lead">We don&apos;t have {symbol} in the simulator yet.</p>
+        <Link href="/markets" className="btn btn-secondary mt-6">
+          Back to markets
+        </Link>
       </div>
     );
 
   const symTrades = trades.filter((x) => x.symbol === symbol);
   const shown = justFilled ? trades.find((x) => x.id === justFilled) : symTrades[0];
   const rangeStart = data[0]?.c ?? price;
-  const ma50 = (() => {
-    const h = getHistory(symbol).slice(-50);
-    return h.reduce((a, b) => a + b.c, 0) / Math.max(1, h.length);
-  })();
+  const ma50 = ma[ma.length - 1]?.c ?? 0;
+  const maOn = showMa && range !== "1D";
 
   return (
-    <div className="space-y-6">
-      <Link href="/markets" className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="size-4" /> Markets
+    <div>
+      <Link href="/markets" className="link t-small text-ink-2">
+        Markets
       </Link>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
-        {/* On mobile the wrapper dissolves so the ticket can sit right under the chart */}
-        <div className="contents min-w-0 space-y-4 lg:block">
-          <section className="card order-1 p-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-2xl font-semibold tracking-tight">{t.symbol}</h1>
-                  <span className="text-ink-2">{t.name}</span>
-                  <button onClick={() => toggleWatch(symbol)} aria-label="Toggle watchlist" className="text-muted hover:text-ink">
-                    <Star className={cn("size-4", watch && "fill-warn text-warn")} />
-                  </button>
+      <div className="mt-3 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-12">
+        {/* On phones the wrapper dissolves so the ticket sits right under the chart */}
+        <div className="contents lg:block lg:min-w-0 lg:space-y-12">
+          <section className="order-1 min-w-0" aria-labelledby="sym-h">
+            <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-x-3">
+                  <h1 id="sym-h" className="t-title">
+                    {t.symbol}
+                  </h1>
+                  <span className="t-lead">{t.name}</span>
                 </div>
-                {price && <LivePrice value={price} format={(n) => usd(n)} className="mt-1 block text-4xl font-semibold tracking-tight" />}
-                <div className="mt-1 flex items-center gap-3 text-sm">
-                  {price && prev && <Delta value={price - prev} />}
-                  {price && rangeStart && <Delta ratio={price / rangeStart - 1} />}
-                  <span className="text-muted">{range === "1D" ? "today" : `past ${range}`}</span>
-                </div>
+                {price && (
+                  <div className="mt-3">
+                    <AnimatedNumber value={price} format={(n) => usd(n)} split className="t-readout block" />
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 t-small">
+                      {prev && <Delta value={price - prev} />}
+                      {rangeStart && <Delta ratio={price / rangeStart - 1} />}
+                      <span className="text-ink-2">{range === "1D" ? "today" : `past ${range}`}</span>
+                    </div>
+                  </div>
+                )}
               </div>
-              <Segmented value={range} onChange={setRange} options={(["1D", "1M", "3M", "1Y"] as Range[]).map((r) => ({ value: r, label: r }))} />
+              <button onClick={() => toggleWatch(symbol)} aria-pressed={watch} className="btn btn-secondary">
+                {watch ? "Watching" : "Watch"}
+              </button>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <Segmented label="Chart range" value={range} onChange={setRange} options={(["1D", "1M", "3M", "1Y"] as Range[]).map((r) => ({ value: r, label: r }))} />
+              {range !== "1D" && (
+                <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 t-small text-ink">
+                  <input type="checkbox" checked={showMa} onChange={(e) => setShowMa(e.target.checked)} className="size-5 accent-[var(--ink)]" />
+                  Show 50-day average
+                </label>
+              )}
             </div>
             <div className="mt-4">
               <PriceChart
                 data={data}
                 height={320}
                 baseline={range === "1D" ? prev : undefined}
-                baselineLabel={range === "1D" ? `Prev close ${usd(prev ?? 0)}` : undefined}
+                baselineLabel={range === "1D" && prev ? `Previous close ${usd(prev)}` : undefined}
                 label={`${symbol} price, ${range}`}
-                formatTime={range === "1D" ? (x) => new Date(x).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" }) : undefined}
-                markers={symTrades.map((x) => ({ t: x.at, side: x.side }))}
+                seriesLabel={symbol}
+                overlay={maOn ? { label: "50-day average", data: ma } : undefined}
+                formatTime={range === "1D" ? (x) => new Date(x).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : undefined}
+                markers={symTrades.map((x) => ({ t: x.at, side: x.side, note: `${x.side === "buy" ? "Bought" : "Sold"} ${x.qty} at ${usd(x.price)}. Score ${x.score}.` }))}
               />
             </div>
           </section>
 
           {shown && (
-            <section className="order-3">
-              <SectionTitle title={justFilled ? "Your coach review" : `Your last ${symbol} trade`} />
-              <ReviewCard trade={shown} />
+            <section className="order-3 min-w-0" aria-label={justFilled ? "Your coach review" : `Your last ${symbol} trade`}>
+              <ReviewCard trade={shown} headingLevel="h2" />
             </section>
           )}
 
-          <div className="order-4 grid gap-4 md:grid-cols-2">
-            <section className="card p-5">
-              <SectionTitle title={`About ${t.name}`} />
-              <p className="text-sm text-ink-2">{t.blurb}</p>
-              <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <div className="order-4 grid min-w-0 grid-cols-1 gap-10 md:grid-cols-2">
+            <section className="min-w-0" aria-labelledby="about-h">
+              <SectionTitle id="about-h" title={`About ${t.name}`} />
+              <p className="t-small text-ink-2">{t.blurb}</p>
+              <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 t-small">
                 <Stat k="Sector" v={t.sector} />
                 {t.marketCapB && <Stat k="Market cap" v={t.marketCapB >= 1000 ? `$${(t.marketCapB / 1000).toFixed(2)}T` : `$${t.marketCapB}B`} />}
                 {t.pe && <Stat k="P/E ratio" v={String(t.pe)} lesson="valuation-pe" />}
                 <Stat k="Dividend yield" v={t.dividendYield ? `${t.dividendYield}%` : "None"} />
                 <Stat k="Beta" v={t.beta.toFixed(2)} lesson="how-the-market-moves" />
-                <Stat k="50-day avg" v={usd(ma50)} lesson="moving-averages" />
+                <Stat k="50-day average" v={usd(ma50)} lesson="moving-averages" />
               </dl>
-              <div className="mt-4 flex gap-2 rounded-2xl bg-panel-2 p-3 text-sm">
-                <Info className="mt-0.5 size-4 shrink-0 text-muted" />
-                <span><span className="font-medium">Volatility:</span> {volWord(t.vol)}. {price && price > ma50 ? "Trading above its 50-day average." : "Trading below its 50-day average."}</span>
-              </div>
+              <p className="mt-4 border-t border-rule pt-3 t-small text-ink-2">
+                <span className="font-medium text-ink">Volatility:</span> {volWord(t.vol)}. {price && price > ma50 ? "Trading above its 50-day average." : "Trading below its 50-day average."}
+              </p>
             </section>
-            <section className="card p-5">
-              <SectionTitle title="Your position" />
+            <section className="min-w-0" aria-labelledby="pos-h">
+              <SectionTitle id="pos-h" title="Your position" />
               {position ? (
-                <dl className="grid grid-cols-2 gap-3 text-sm">
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-3 t-small">
                   <Stat k="Shares" v={String(position.qty)} />
-                  <Stat k="Avg cost" v={usd(position.avgCost)} />
+                  <Stat k="Average cost" v={usd(position.avgCost)} />
                   <Stat k="Market value" v={usd(position.qty * (price ?? 0))} />
                   <div>
-                    <dt className="text-xs text-muted">Unrealized P&L</dt>
-                    <dd className="mt-0.5"><Delta value={position.qty * ((price ?? 0) - position.avgCost)} /></dd>
+                    <dt className="t-micro text-ink-2">Unrealized P&amp;L</dt>
+                    <dd className="mt-0.5">
+                      <Delta value={position.qty * ((price ?? 0) - position.avgCost)} />
+                    </dd>
                   </div>
                 </dl>
               ) : (
-                <p className="text-sm text-muted">You don&apos;t own {symbol} yet.</p>
+                <p className="t-small text-ink-2">You don&apos;t own {symbol} yet.</p>
               )}
-              <h3 className="mb-2 mt-5 text-sm font-semibold">News</h3>
+              <h3 className="mb-2 mt-8 t-h3">News</h3>
               <NewsFeed symbol={symbol} limit={4} />
             </section>
           </div>
         </div>
 
-        <aside className="order-2 lg:sticky lg:top-20 lg:h-fit">
+        <aside className="order-2 min-w-0 lg:sticky lg:top-[80px] lg:h-fit" aria-label="Order ticket">
           <OrderTicket symbol={symbol} onFilled={setJustFilled} />
         </aside>
       </div>
@@ -158,8 +191,16 @@ export default function SymbolPage() {
 
 function Stat({ k, v, lesson }: { k: string; v: string; lesson?: string }) {
   return (
-    <div>
-      <dt className="text-xs text-muted">{lesson ? <Link href={`/learn/${lesson}`} className="underline decoration-dotted underline-offset-2 hover:text-ink">{k}</Link> : k}</dt>
+    <div className="min-w-0">
+      <dt className="t-micro text-ink-2">
+        {lesson ? (
+          <Link href={`/learn/${lesson}`} className="link">
+            {k}
+          </Link>
+        ) : (
+          k
+        )}
+      </dt>
       <dd className="tnum mt-0.5 font-medium">{v}</dd>
     </div>
   );

@@ -190,6 +190,7 @@ export function Segmented<T extends string>({
   kind = "radio",
   label,
   size = "sm",
+  stretch = false,
   className,
 }: {
   value: T;
@@ -198,6 +199,8 @@ export function Segmented<T extends string>({
   kind?: "radio" | "tabs";
   label?: string;
   size?: "sm" | "md";
+  /** Equal-width options filling the row (e.g. Buy / Sell). */
+  stretch?: boolean;
   className?: string;
 }) {
   const gid = useId();
@@ -238,7 +241,7 @@ export function Segmented<T extends string>({
     );
   }
   return (
-    <div role="radiogroup" aria-label={label} className={cn("inline-flex rounded-md border border-edge p-0.5", className)} onKeyDown={onKey}>
+    <div role="radiogroup" aria-label={label} className={cn(stretch ? "grid w-full auto-cols-fr grid-flow-col" : "inline-flex", "rounded-md border border-edge p-0.5", className)} onKeyDown={onKey}>
       {options.map((o, i) => {
         const on = o.value === value;
         return (

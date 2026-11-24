@@ -1,14 +1,21 @@
 // Used when no Claude credentials are configured, so the app still coaches.
 import type { CoachReview, Trade } from "@/store/app";
 import { LESSON_MAP } from "./course";
-import { scoreLabel } from "./analysis";
+
+function headlineFor(t: Trade): string {
+  const what = `${t.symbol} ${t.side === "buy" ? "entry" : "exit"}`;
+  if (t.score >= 85) return `Your ${what} went to plan`;
+  if (t.score >= 70) return `A solid ${what}, with one thing to tighten`;
+  if (t.score >= 50) return `Your ${what} needs one habit fixed`;
+  return `Your ${what} took on too much risk`;
+}
 
 export function rulesReview(t: Trade): CoachReview {
   const bad = t.flags.filter((f) => f.tone !== "good");
   const worst = bad.find((f) => f.tone === "risk") ?? bad[0];
   const lesson = worst?.lesson ? LESSON_MAP[worst.lesson] : undefined;
   return {
-    headline: `${scoreLabel(t.score)} — ${t.side === "buy" ? "entry" : "exit"} on ${t.symbol}`,
+    headline: headlineFor(t),
     summary: worst
       ? `${worst.title}. ${worst.detail}`
       : "Clean process. You sized sensibly, defined your risk and wrote down your reasoning. Keep repeating this.",
@@ -29,10 +36,15 @@ const TOPICS: { match: RegExp; answer: string }[] = [
   { match: /earn|eps|report/i, answer: "Stocks react to earnings *versus expectations*, and to guidance about the next quarter. Holding a big position into earnings is a coin flip, so size down. See [Earnings & EPS](/learn/earnings-and-eps)." },
 ];
 
-export function offlineAnswer(question: string, context: string): string {
+/**
+ * The built-in playbook answer. User-facing only: no setup text, no debug context.
+ * `context` is accepted for signature compatibility with the AI path; the playbook doesn't need it.
+ */
+export function offlineAnswer(question: string, context = ""): string {
+  void context;
   const hit = TOPICS.find((t) => t.match.test(question));
-  const base =
+  return (
     hit?.answer ??
-    "Good question. Here's the coach's core playbook: **risk 1–2% per trade**, **always set a stop**, **aim for 2 : 1 reward-to-risk**, **spread across sectors** and **write a thesis for every trade**. Tell me which one you want to dig into, or open your latest trade review on the dashboard.";
-  return `${base}\n\n_Offline coach mode — add an Anthropic API key to unlock full AI coaching. (${context.split("\n")[0] ?? ""})_`;
+    "Here's the core playbook: **risk 1–2% of your account per trade**, **set a stop before you buy**, **aim for at least 2 : 1 reward to risk**, **spread across sectors** and **write down why you're buying**. Tell me which one you want to dig into, or open your latest trade review on Home."
+  );
 }

@@ -125,7 +125,7 @@ async function consent(page) {
   check("rejects buys beyond cash", await page.getByRole("alert").filter({ hasText: "Not enough cash" }).isVisible());
 
   // sell with realized P&L
-  await page.getByRole("button", { name: /^sell$/i }).click();
+  await page.getByRole("radio", { name: "Sell" }).click();
   await page.locator("#qty").fill("30");
   await page.getByRole("button", { name: /^Sell 30 TSLA$/ }).click();
   await waitFor(async () => (await state(page)).trades[0]?.side === "sell");
@@ -166,6 +166,34 @@ async function consent(page) {
     check("OCO cancels the take-profit leg", tp?.status === "cancelled");
     check("position closed after stop", !s.positions.AMD);
   }
+  // toasts never cover the ticket's submit button (the stop-loss toast is on screen now)
+  const toastsShown = await page.locator("[data-toaster] [role=status]").count();
+  const buyCovered = await page.evaluate(() => {
+    const b = [...document.querySelectorAll("button")].find((x) => /^Buy \d+ AMD$/.test(x.textContent.trim()));
+    if (!b) return "no Buy button";
+    b.scrollIntoView({ block: "center" });
+    const r = b.getBoundingClientRect();
+    const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return b.contains(el) ? "" : `covered by ${el?.closest("[data-toaster]") ? "a toast" : el?.tagName}`;
+  });
+  check("toasts never cover the ticket's Buy button", buyCovered === "", `${buyCovered || "clear"}, ${toastsShown} toast(s) on screen`);
+
+  // double submit: a double click or Enter pressed twice places exactly one order
+  await page.goto(`${BASE}/markets/JPM`);
+  await page.locator("#qty").fill("4");
+  const jpmCount = async () => (await state(page)).trades.filter((t) => t.symbol === "JPM").length;
+  const jpm0 = await jpmCount();
+  await page.getByRole("button", { name: /^Buy 4 JPM$/ }).dblclick();
+  await page.waitForTimeout(1200);
+  const jpm1 = await jpmCount();
+  check("double-clicking Buy places exactly one order", jpm1 - jpm0 === 1, `${jpm1 - jpm0} orders`);
+  await page.locator("#qty").fill("3");
+  await page.getByRole("button", { name: /^Buy 3 JPM$/ }).focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(1200);
+  const jpm2 = await jpmCount();
+  check("pressing Enter twice on Buy places exactly one order", jpm2 - jpm1 === 1, `${jpm2 - jpm1} orders`);
 
   // learning
   const xpBefore = (await state(page)).xp;
