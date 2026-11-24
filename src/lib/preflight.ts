@@ -13,6 +13,7 @@ export interface PreflightCheck {
 export interface PreflightInput {
   side: "buy" | "sell";
   qty: number;
+  /** Expected fill price (see lib/pricing expectedFill), not just the typed trigger. */
   entry: number;
   stopLoss?: number;
   takeProfit?: number;
@@ -31,9 +32,9 @@ export function preflightChecks(i: PreflightInput): PreflightCheck[] {
   const riskPct = stopOk ? (perShare * qty) / equity : undefined;
   const targetOk = stopOk && !!i.takeProfit && i.takeProfit > i.entry && (i.takeProfit - i.entry) / perShare >= 2;
   const positionPct = ((i.existingQty ?? 0) + qty) * i.entry / equity;
-  const thesisLen = (i.thesis ?? "").trim().length;
+  const thesisLen = [...(i.thesis ?? "").trim()].length; // code points, so one emoji counts once
 
-  const maxByRisk = stopOk ? Math.floor((equity * 0.02) / perShare) : 0;
+  const maxByRisk = stopOk ? Math.floor((equity * 0.02) / perShare - 1e-9) : 0;
   const maxBySize = Math.max(0, Math.floor((equity * 0.25) / i.entry) - (i.existingQty ?? 0));
 
   return [
@@ -49,14 +50,14 @@ export function preflightChecks(i: PreflightInput): PreflightCheck[] {
       label: "Stop-loss set",
       applicable: buy,
       ok: stopOk,
-      fix: stopOk ? undefined : i.stopLoss && i.stopLoss >= i.entry ? `Move the stop below ${usd(i.entry)}` : `Add a stop-loss below ${usd(i.entry * 0.95)}`,
+      fix: stopOk ? undefined : i.stopLoss && i.stopLoss >= i.entry ? `Move the stop below ${usd(i.entry)}, the price this order would fill at` : `Add a stop-loss below ${usd(i.entry * 0.95)}`,
     },
     {
       id: "risk",
       label: "Risk under 2% of account",
       applicable: buy,
       ok: riskPct != null && riskPct <= 0.02,
-      fix: riskPct == null ? "Set a stop-loss first" : riskPct <= 0.02 ? undefined : `Cut to ${Math.max(1, maxByRisk)} shares to risk 2%`,
+      fix: riskPct == null ? "Set a stop-loss first" : riskPct <= 0.02 ? undefined : maxByRisk < 1 ? "Even 1 share risks over 2%. Move the stop closer." : `Cut to ${maxByRisk} ${maxByRisk === 1 ? "share" : "shares"} to risk 2%`,
     },
     {
       id: "target",
@@ -70,7 +71,7 @@ export function preflightChecks(i: PreflightInput): PreflightCheck[] {
       label: "Position under 25% of account",
       applicable: true,
       ok: !buy || positionPct <= 0.25,
-      fix: !buy || positionPct <= 0.25 ? undefined : `Cut to ${maxBySize} shares to stay under 25%`,
+      fix: !buy || positionPct <= 0.25 ? undefined : maxBySize < 1 ? "This position is already over 25%. Don't add more." : `Cut to ${maxBySize} ${maxBySize === 1 ? "share" : "shares"} to stay under 25%`,
     },
   ];
 }

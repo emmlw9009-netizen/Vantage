@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMarket } from "@/store/market";
 import { useApp, equityOf } from "@/store/app";
 import { useToast } from "@/store/toast";
+import { isClockLeader, startClockElection, startCrossTabSync } from "@/store/sync";
 import { MISSIONS, MissionId } from "@/lib/course";
 import { missionDone } from "@/lib/missions";
 import { rulesReview } from "@/lib/offline-coach";
@@ -80,15 +81,29 @@ export function Providers({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // market clock
+  // cross-tab sync: other tabs' writes are rehydrated here, and our stale writes are refused (see store/sync.ts)
+  useEffect(
+    () =>
+      startCrossTabSync({
+        "sp-app": () => useApp.persist.rehydrate(),
+        "sp-market": () => useMarket.persist.rehydrate(),
+      }),
+    [],
+  );
+
+  // market clock: only the elected visible tab ticks and fills orders; the others follow through storage events
   useEffect(() => {
     init();
+    const stopElection = startClockElection();
     const id = setInterval(() => {
-      if (document.hidden) return;
+      if (document.hidden || !isClockLeader()) return;
       useMarket.getState().tick();
       useApp.getState().processPrices(useMarket.getState().prices);
     }, TICK_MS);
-    return () => clearInterval(id);
+    return () => {
+      clearInterval(id);
+      stopElection();
+    };
   }, [init]);
 
   // reviews + fill toasts

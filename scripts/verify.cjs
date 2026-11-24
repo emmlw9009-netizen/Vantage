@@ -221,6 +221,154 @@ async function consent(page) {
   check("state persists across reload", (await state(page)).trades.length === before);
 
 
+  // ---------------- round-2 logic fixes ----------------
+  console.log("\nRound 2 logic: multi-tab, brackets, sizing, input parsing");
+  const checkOf = (p, id) => p.locator(`[data-check-id="${id}"]`).getAttribute("data-ok");
+  {
+    // N1: a second tab must not erase trades made in the first (stale tab used to overwrite storage within ~10s)
+    const tabA = await ctx.newPage();
+    const tabB = await ctx.newPage();
+    watch(tabA, "tabA");
+    watch(tabB, "tabB");
+    await tabA.goto(`${BASE}/dashboard`);
+    await tabB.goto(`${BASE}/markets/SPY`);
+    await tabA.waitForTimeout(1500);
+    await tabB.locator("#qty").fill("3");
+    await tabB.getByRole("button", { name: /^Buy 3 SPY$/ }).click();
+    const spyBefore = (await state(tabB)).positions.SPY?.qty ?? 0;
+    const tradesBefore = (await state(tabB)).trades.length;
+    check("tab B trade is saved", spyBefore === 3);
+    await tabA.bringToFront(); // the user switches back to the stale tab, which is visible again and ticking
+    // tab A stays open and its 10s equity snapshot fires. Sample storage every 500ms: a stale write may be repaired a moment later by another tab, so one late read is not enough.
+    let lost = 0;
+    for (let i = 0; i < 30; i++) {
+      await tabA.waitForTimeout(500);
+      const st = await state(tabA);
+      if (st.positions.SPY?.qty !== 3 || st.trades.length < tradesBefore) lost++;
+    }
+    const afterA = await state(tabA);
+    check("multi-tab: trade made in tab B survives while tab A stays open 15s", lost === 0 && afterA.positions.SPY?.qty === 3 && afterA.trades.length === tradesBefore, `SPY ${afterA.positions.SPY?.qty}, trades ${afterA.trades.length}/${tradesBefore}, ${lost}/30 samples missing it`);
+    // tab A's in-memory state caught up too (storage events rehydrate it), so its next write cannot lose the trade
+    await tabA.reload();
+    check("multi-tab: a fresh load of tab A still has the trade", (await state(tabA)).positions.SPY?.qty === 3);
+    const mA = await price(tabA, "SPY");
+    await tabA.waitForTimeout(4500);
+    check("multi-tab: the market keeps ticking with two tabs open", (await price(tabB, "SPY")) !== undefined && (await tabB.evaluate(() => JSON.parse(localStorage.getItem("sp-market")).state.intraday.SPY.length)) > 40, `SPY ${mA}`);
+    await tabA.close();
+    await tabB.close();
+  }
+  {
+    // N4: a limit buy whose stop sits between market and limit is rejected up front, and the checklist says so
+    await page.goto(`${BASE}/markets/KO`);
+    await page.getByRole("tab", { name: "Limit" }).click();
+    const kp = await price(page, "KO");
+    await page.locator("#trigger").fill((kp * 1.05).toFixed(2));
+    await page.locator("#qty").fill("5");
+    await page.locator("#stop").fill((kp * 1.02).toFixed(2));
+    await page.locator("#target").fill((kp * 1.3).toFixed(2));
+    await page.locator("#thesis").fill("Testing that a stop above the price this order fills at is caught before I place it.");
+    check("N4 checklist does not tick a stop above the expected fill", (await checkOf(page, "stop")) === "false");
+    const before = (await state(page)).orders.length;
+    await page.getByRole("button", { name: "Place limit buy" }).click();
+    check("N4 limit buy with stop above the fill price is rejected with a reason", await page.getByRole("alert").filter({ hasText: "stop-loss must be below" }).isVisible() && (await state(page)).orders.length === before);
+
+    // fill-time: price gaps below the stop, so no valid stop leg can exist. It is cancelled, noted and toasted, never dropped silently.
+    await page.goto(`${BASE}/markets/JNJ`);
+    await page.getByRole("tab", { name: "Limit" }).click();
+    const jp = await price(page, "JNJ");
+    await page.locator("#trigger").fill(jp.toFixed(2));
+    await page.locator("#qty").fill("4");
+    await page.locator("#stop").fill((jp * 0.99).toFixed(2));
+    await page.locator("#target").fill((jp * 1.3).toFixed(2));
+    await page.getByRole("button", { name: "Place limit buy" }).click();
+    const jOrder = (await state(page)).orders.find((o) => o.symbol === "JNJ" && o.status === "open" && o.type === "limit");
+    check("N4 limit buy with a valid stop is accepted", !!jOrder);
+    await page.evaluate((px) => window.__vantageTest.setPrices({ JNJ: px }), jp * 0.96);
+    await waitFor(async () => (await state(page)).positions.JNJ?.qty === 4, 8000, 200);
+    s = await state(page);
+    const jEntry = s.orders.find((o) => o.id === jOrder?.id);
+    check("N4 fill below the stop cancels the stop leg and records why", s.positions.JNJ?.qty === 4 && !s.orders.some((o) => o.symbol === "JNJ" && o.role === "stop-loss" && o.status === "open") && /Stop-loss at .* was cancelled/.test(jEntry?.note ?? ""), jEntry?.note);
+    check("N4 the take-profit leg is still created", s.orders.some((o) => o.symbol === "JNJ" && o.role === "take-profit" && o.status === "open"));
+    check("N4 the user is told with a toast", await page.getByText(/filled without a stop-loss/).first().isVisible());
+  }
+  for (const sym of ["NVDA", "AAPL", "SPY", "JPM"]) {
+    // N3: "2% of account" must give risk at or under 2% at the actual fill (fresh $100k account per ticker so cash never caps the size)
+    const c = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    const p = await c.newPage();
+    watch(p, `n3-${sym}`);
+    await p.goto(`${BASE}/dashboard`);
+    await p.getByPlaceholder("Your first name").fill("Sam");
+    await consent(p);
+    await p.getByRole("button", { name: "Continue" }).click();
+    await p.getByText("A little").click();
+    await p.getByRole("button", { name: "Continue" }).click();
+    await p.getByRole("button", { name: "Start trading" }).click();
+    await p.goto(`${BASE}/markets/${sym}`);
+    await p.getByRole("button", { name: "−3%" }).click();
+    await p.getByRole("button", { name: "+10%" }).click();
+    await p.getByRole("button", { name: "2% of account" }).click();
+    await p.locator("#thesis").fill("Sizing check: I expect a bounce because the stop is defined; I am wrong if it breaks the stop.");
+    const riskTick = await checkOf(p, "risk");
+    await p.getByRole("button", { name: new RegExp(`^Buy \\d+ ${sym}$`) }).click();
+    await waitFor(async () => (await state(p)).trades[0]?.symbol === sym, 8000, 200);
+    const t = (await state(p)).trades[0];
+    check(`N3 ${sym}: 2% sizing fills at risk ≤ 2% and the review agrees`, riskTick === "true" && t.metrics.riskPct <= 0.02 && t.metrics.riskPct > 0.018 && !t.flags.some((f) => f.id === "risk-high"), `risk ${(t.metrics.riskPct * 100).toFixed(3)}%`);
+    await c.close();
+  }
+  {
+    // F9: stop and target accept only valid positive numbers
+    await page.goto(`${BASE}/markets/NVDA`);
+    await page.locator("#qty").fill("2");
+    await page.locator("#thesis").fill("Parsing check for stop input so I know exactly what the ticket understood from my text.");
+    for (const bad of ["5abc", "1e3", "0.001", "-5", "Infinity", "1,10"]) {
+      await page.locator("#stop").fill(bad);
+      const msg = await page.locator('[data-field-error="stop"]').isVisible();
+      const ok = await checkOf(page, "stop");
+      if (!msg || ok !== "false") check(`F9 "${bad}" is treated as unset with a visible message`, false, `message ${msg}, ticked ${ok}`);
+    }
+    check("F9 invalid stops show a message and leave the stop unset", true);
+    await page.locator("#stop").fill("5abc");
+    await page.locator("#target").fill("12x");
+    check("F9 invalid target shows its own message", await page.locator('[data-field-error="target"]').isVisible());
+    const np = await price(page, "NFLX");
+    await page.goto(`${BASE}/markets/NFLX`);
+    await page.locator("#qty").fill("1");
+    await page.locator("#stop").fill((np * 0.95).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    check("F9 a stop with thousands separators is read correctly", (await checkOf(page, "stop")) === "true" && !(await page.locator('[data-field-error="stop"]').isVisible()), `NFLX ${np}`);
+    await page.locator("#stop").fill("5.5");
+    check("F9 a valid number clears the message", !(await page.locator('[data-field-error="stop"]').isVisible()));
+    // N20: emoji count as one character each
+    await page.locator("#thesis").fill("🚀".repeat(20));
+    check("N20 20 emoji do not count as a 40 character reason", (await checkOf(page, "reason")) === "false");
+  }
+  {
+    // N2: a double click places one order
+    await page.goto(`${BASE}/markets/V`);
+    await page.locator("#qty").fill("2");
+    await page.getByRole("button", { name: /^Buy 2 V$/ }).click();
+    await waitFor(async () => ((await state(page)).positions.V?.qty ?? 0) === 2, 5000, 100);
+    await page.getByRole("button", { name: /^Buy 2 V$/ }).dblclick(); // repeat of the same order, no edit in between
+    await page.waitForTimeout(1200);
+    const vq = (await state(page)).positions.V?.qty ?? 0;
+    check("N2 double-clicking Buy places one more order, not two", vq === 4, `V qty ${vq}`);
+  }
+  {
+    // N10: malformed saved state recovers instead of crashing every page
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await c.addInitScript(() => {
+      if (!localStorage.getItem("seeded")) {
+        localStorage.setItem("seeded", "1");
+        localStorage.setItem("sp-app", JSON.stringify({ state: { positions: null, trades: {}, orders: "x", cash: "100" }, version: 1 }));
+      }
+    });
+    const p = await c.newPage();
+    await p.goto(`${BASE}/dashboard`);
+    await p.waitForTimeout(1500);
+    const crashed = await p.getByText("Application error").count();
+    check("N10 malformed saved state does not crash the app", crashed === 0);
+    await c.close();
+  }
+
   // ---------------- legal, consent, data controls ----------------
   console.log("\nLegal pages, consent and data controls");
   const storageNow = await ctx.storageState();
@@ -432,6 +580,29 @@ async function consent(page) {
     check("delete leaves no personal data (only fresh simulated prices may be rewritten)", !/Alex|Casey|consent|acceptedAt/.test(marketAfter ?? ""));
     check("delete clears both stores and returns to onboarding", (!after || (!after.profile.onboarded && !after.profile.consent && after.trades.length === 0 && after.profile.name === "")) && (await p.getByText("Welcome to Vantage").isVisible()), `sp-market ${marketAfter ? "rewritten fresh" : "empty"}`);
     check("delete also removes the saved theme", (await p.evaluate(() => localStorage.getItem("sp-theme"))) === null);
+    await c.close();
+  }
+  {
+    // delete in one tab must clear every tab: a stale tab must not restore the name, consent or trades
+    const c = await browser.newContext({ viewport: { width: 1440, height: 1000 }, storageState: storageNow });
+    const tabA = await c.newPage();
+    const tabB = await c.newPage();
+    watch(tabA, "delete-A");
+    watch(tabB, "delete-B");
+    await tabA.goto(`${BASE}/dashboard`);
+    await tabB.goto(`${BASE}/settings`);
+    await tabA.waitForTimeout(1500);
+    const had = (await state(tabA)).trades.length;
+    await tabB.getByRole("button", { name: "Delete all my data" }).click();
+    await tabB.getByLabel("Type DELETE to confirm").fill("DELETE");
+    await tabB.getByRole("dialog").getByRole("button", { name: "Delete everything" }).click();
+    await tabB.getByLabel(/I.m 18 or older/).waitFor({ timeout: 10000 });
+    await tabA.bringToFront();
+    await tabA.waitForTimeout(15000);
+    const sa = await state(tabA);
+    const sb = await state(tabB);
+    const clean = (st) => !st || (st.trades.length === 0 && !st.profile.consent && !st.profile.onboarded && st.profile.name === "");
+    check("multi-tab delete: both tabs show onboarding and storage keeps no trades or consent", had > 0 && clean(sa) && clean(sb) && (await tabA.getByLabel(/I.m 18 or older/).isVisible()) && (await tabB.getByLabel(/I.m 18 or older/).isVisible()), `had ${had} trades, A trades ${sa?.trades.length}, B trades ${sb?.trades.length}`);
     await c.close();
   }
   {

@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { guardedStorage } from "./sync";
 import { Bar, NewsItem, TICKERS, generateHistory, gaussian, isCurrentHeadline, mulberry32, randomNews, round2, hashString } from "@/lib/market-data";
 
 const TICKS_PER_DAY = 78; // each live tick ≈ 5 simulated minutes
@@ -111,6 +112,8 @@ export const useMarket = create<MarketState>()(
     {
       name: "sp-market",
       version: 1,
+      storage: guardedStorage,
+      migrate: (state) => state as MarketState,
       // Drop persisted headlines that don't match the current templates (old ones alleged specific events about real companies).
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<MarketState>;
