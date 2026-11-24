@@ -633,8 +633,34 @@ async function consent(page) {
       const res = await p.goto(`${BASE}${r}`);
       await p.waitForTimeout(700);
       const ok = res && res.status() === 200;
-      const overflow = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-      if (!ok || overflow > 1) check(`${label} ${r}`, false, `status ${res?.status()} overflow ${overflow}px`);
+      // Measure against the layout viewport (clientWidth), not innerWidth: in phone emulation Chromium zooms
+      // out to fit a too-wide page, so innerWidth grows with the page and hides the overflow.
+      const { px: overflow, who } = await p.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const clippers = new Set([...document.querySelectorAll("body *")].filter((el) => !["visible", ""].includes(getComputedStyle(el).overflowX)));
+        let worst = document.documentElement.scrollWidth - vw;
+        let who = worst > 1 ? "document scrollWidth" : "";
+        for (const el of document.querySelectorAll("body *")) {
+          let a = el.parentElement;
+          let inScroller = false;
+          while (a && a !== document.body) {
+            if (clippers.has(a)) {
+              inScroller = true;
+              break;
+            }
+            a = a.parentElement;
+          }
+          if (inScroller) continue;
+          const rect = el.getBoundingClientRect();
+          if (!rect.width || !rect.height) continue;
+          if (rect.right - vw > worst) {
+            worst = rect.right - vw;
+            who = `${el.tagName.toLowerCase()}${typeof el.className === "string" && el.className ? "." + el.className.trim().split(/\s+/).slice(0, 3).join(".") : ""}`;
+          }
+        }
+        return { px: Math.round(worst), who };
+      });
+      if (!ok || overflow > 1) check(`${label} ${r}`, false, `status ${res?.status()} overflow ${overflow}px (${who})`);
       const name = `${label}${r.replace(/\//g, "_") || "_home"}.png`;
       await p.screenshot({ path: `${SHOTS}/${name}`, fullPage: true });
       for (const h of await p.$$eval('a[href^="/"]', (as) => as.map((a) => a.getAttribute("href")))) links.add(h.split("?")[0]);
@@ -658,6 +684,27 @@ async function consent(page) {
       return [...h.querySelectorAll("*")].every((el) => el.getBoundingClientRect().right <= window.innerWidth + 1);
     });
     check("phone header fits the screen", headerFits);
+    await c.close();
+  }
+  // phone header at the two most common widths: every control fits and keeps a 40px target
+  for (const w of [360, 390]) {
+    const c = await browser.newContext({ ...devices["iPhone 14"], viewport: { width: w, height: 800 }, storageState: storage });
+    const p = await c.newPage();
+    watch(p, `phone-header-${w}`);
+    await p.goto(`${BASE}/dashboard`);
+    await p.waitForTimeout(600);
+    const bad = await p.evaluate(() => {
+      const vw = document.documentElement.clientWidth;
+      const h = document.querySelector("header");
+      return [...h.querySelectorAll("a,button")]
+        .filter((el) => el.offsetParent !== null)
+        .map((el) => {
+          const r = el.getBoundingClientRect();
+          return { name: el.getAttribute("aria-label") || el.textContent.trim(), w: Math.round(r.width), h: Math.round(r.height), right: Math.round(r.right), vw };
+        })
+        .filter((x) => x.w < 40 || x.h < 40 || x.right > x.vw + 1);
+    });
+    check(`phone header at ${w}px: every control fits and is at least 40×40`, bad.length === 0, JSON.stringify(bad));
     await c.close();
   }
 

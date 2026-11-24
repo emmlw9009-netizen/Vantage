@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, Clock, Lightbulb, MessageCircle, Target, XCircle } from "lucide-react";
 import { ALL_LESSONS, LESSON_MAP, MISSIONS, moduleOf } from "@/lib/course";
 import { useApp } from "@/store/app";
 import { useToast } from "@/store/toast";
 import { cn } from "@/lib/format";
+import { CheckCell, MarkGlyph } from "@/components/marks";
 
 export default function LessonPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -22,8 +22,11 @@ export default function LessonPage() {
 
   if (!lesson || !mod)
     return (
-      <div className="card p-8 text-center">
-        Lesson not found. <Link href="/learn" className="text-series-1 hover:underline">Back to the course</Link>
+      <div className="max-w-xl">
+        <h1 className="t-title">Lesson not found</h1>
+        <Link href="/learn" className="btn btn-secondary mt-6">
+          Back to the course
+        </Link>
       </div>
     );
 
@@ -39,71 +42,94 @@ export default function LessonPage() {
     const score = correct / lesson.quiz.length;
     const first = !completed;
     completeLesson(slug, score);
-    push({ title: score === 1 ? "Perfect score! 🎯" : "Lesson complete", body: `${first ? "+50 XP" : "Progress saved"}${score === 1 && (completed?.quiz ?? 0) < 1 ? " · +25 XP quiz bonus" : ""}`, tone: "good" });
+    const bonus = score === 1 && (completed?.quiz ?? 0) < 1;
+    push({ title: score === 1 ? "Perfect quiz" : "Lesson complete", body: first ? `${50 + (bonus ? 25 : 0)} XP added.` : bonus ? "25 XP quiz bonus added." : "Progress saved.", tone: "good" });
   };
 
   return (
-    <article className="mx-auto max-w-3xl space-y-6">
-      <Link href="/learn" className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="size-4" /> {mod.title}
+    <article className="max-w-[760px]">
+      <Link href="/learn" className="link t-small text-ink-2">
+        Course
       </Link>
+      <span className="t-small text-ink-2"> / {mod.title}</span>
 
-      <header>
-        <div className="flex items-center gap-3 text-sm text-muted">
-          <span>Lesson {idx + 1} of {ALL_LESSONS.length}</span>
-          <span className="flex items-center gap-1"><Clock className="size-3.5" />{lesson.minutes} min</span>
-          {completed && <span className="flex items-center gap-1 text-up"><CheckCircle2 className="size-3.5" />Completed</span>}
-        </div>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{lesson.title}</h1>
-        <p className="mt-2 text-lg text-ink-2">{lesson.summary}</p>
+      <header className="mt-4">
+        <h1 className="t-title">{lesson.title}</h1>
+        <p className="mt-3 t-lead">{lesson.summary}</p>
+        <p className="tnum mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 t-small text-ink-2">
+          <span>
+            Lesson {idx + 1} of {ALL_LESSONS.length}
+          </span>
+          <span>{lesson.minutes} min</span>
+          {completed && (
+            <span className="inline-flex items-center gap-1.5 text-ink">
+              <MarkGlyph kind="good" size={16} /> Completed
+            </span>
+          )}
+        </p>
       </header>
 
-      <div className="card space-y-8 p-6 sm:p-8">
+      <div className="prose-lesson mt-10 space-y-10">
         {lesson.sections.map((s) => (
           <section key={s.heading}>
-            <h2 className="text-xl font-semibold tracking-tight">{s.heading}</h2>
+            <h2 className="t-h2 font-sans">{s.heading}</h2>
             {s.body.map((p, i) => (
-              <p key={i} className="mt-3 leading-7 text-ink-2">{p}</p>
+              <p key={i} className="mt-3">
+                {p}
+              </p>
             ))}
           </section>
         ))}
-        {lesson.callout && (
-          <div className="flex gap-3 rounded-2xl bg-accent-soft p-4">
-            <Lightbulb className="mt-0.5 size-5 shrink-0" />
-            <div>
-              <div className="font-semibold">{lesson.callout.title}</div>
-              <p className="mt-0.5 text-sm text-ink-2">{lesson.callout.body}</p>
-            </div>
-          </div>
-        )}
-        <section>
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">Key takeaways</h2>
-          <ul className="mt-3 space-y-2">
-            {lesson.keyPoints.map((k) => (
-              <li key={k} className="flex gap-2"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-up" />{k}</li>
-            ))}
-          </ul>
-        </section>
+      </div>
+
+      {lesson.callout && (
+        <div className="well mt-8 px-5 py-4">
+          <div className="t-small font-semibold">{lesson.callout.title}</div>
+          <p className="tnum mt-1 t-wide text-[17px] leading-7">{lesson.callout.body}</p>
+        </div>
+      )}
+
+      <section className="mt-10" aria-labelledby="remember-h">
+        <h2 id="remember-h" className="t-h3">
+          What to remember
+        </h2>
+        <ul className="mt-3 border-t border-rule">
+          {lesson.keyPoints.map((k) => (
+            <li key={k} className="flex gap-3 border-b border-rule py-2.5">
+              <MarkGlyph kind="good" className="mt-0.5" />
+              <span className="min-w-0">{k}</span>
+            </li>
+          ))}
+        </ul>
         {lesson.sources && lesson.sources.length > 0 && (
-          <p className="border-t border-line pt-4 text-sm text-ink-2" data-testid="lesson-sources">
-            <span className="font-semibold">Sources:</span>{" "}
+          <p className="mt-4 t-small text-ink-2" data-testid="lesson-sources">
+            <span className="font-semibold text-ink">Sources:</span>{" "}
             {lesson.sources.map((src, i) => (
               <span key={src.url}>
                 {i > 0 && "; "}
-                <a href={src.url} target="_blank" rel="noopener noreferrer" className="text-series-1 underline underline-offset-2">{src.label}</a>
+                <a href={src.url} target="_blank" rel="noopener noreferrer" className="link">
+                  {src.label}
+                </a>
               </span>
             ))}
             . General education, not investment advice.
           </p>
         )}
-      </div>
+      </section>
 
-      <section className="card p-6 sm:p-8">
-        <h2 className="text-xl font-semibold tracking-tight">Check your understanding</h2>
-        <div className="mt-5 space-y-6">
+      <section className="mt-14" aria-labelledby="quiz-h">
+        <div className="sec-head">
+          <h2 id="quiz-h" className="t-h2">
+            Check your understanding
+          </h2>
+        </div>
+        <div className="mt-6 space-y-8">
           {lesson.quiz.map((q, qi) => (
-            <fieldset key={qi}>
-              <legend className="font-medium">{qi + 1}. {q.q}</legend>
+            <fieldset key={qi} className="min-w-0">
+              <legend className="font-medium">
+                <span className="tnum mr-2 text-ink-2">{qi + 1}.</span>
+                {q.q}
+              </legend>
               <div className="mt-3 grid gap-2">
                 {q.options.map((o, oi) => {
                   const chosen = answers[qi] === oi;
@@ -113,61 +139,108 @@ export default function LessonPage() {
                     <button
                       key={oi}
                       disabled={submitted}
+                      aria-pressed={chosen}
                       onClick={() => setAnswers({ ...answers, [qi]: oi })}
                       className={cn(
-                        "flex items-center gap-3 rounded-2xl border px-4 py-3 text-left text-sm transition",
-                        right ? "border-transparent bg-good-bg ring-2 ring-[var(--up)]" : wrong ? "border-transparent bg-risk-bg ring-2 ring-[var(--down)]" : chosen ? "border-transparent bg-accent-soft ring-2 ring-accent" : "border-line hover:bg-panel-2",
+                        "flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-left t-small transition-colors",
+                        chosen && !submitted ? "border-ink" : "border-edge",
+                        !submitted && "hover:bg-well",
+                        wrong && "border-red",
+                        right && "border-pencil",
                       )}
                     >
-                      <span className="grid size-6 shrink-0 place-items-center rounded-full border border-line text-xs font-semibold">{String.fromCharCode(65 + oi)}</span>
-                      <span className="flex-1">{o}</span>
-                      {right && <CheckCircle2 className="size-4 text-up" aria-label="Correct" />}
-                      {wrong && <XCircle className="size-4 text-down" aria-label="Incorrect" />}
+                      <span className={cn("grid size-6 shrink-0 place-items-center rounded-[4px] border t-micro font-semibold", chosen ? "border-ink bg-ink text-on-ink" : "border-edge")}>{String.fromCharCode(65 + oi)}</span>
+                      <span className="min-w-0 flex-1 text-[15px] text-ink">{o}</span>
+                      {right && (
+                        <span className="inline-flex items-center gap-1 t-small text-ink">
+                          <MarkGlyph kind="good" size={16} /> Correct
+                        </span>
+                      )}
+                      {wrong && (
+                        <span className="inline-flex items-center gap-1 t-small text-red">
+                          <MarkGlyph kind="risk" size={16} /> Not quite
+                        </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
-              {submitted && <p className="mt-2 text-sm text-ink-2"><span className="font-semibold">Why: </span>{q.why}</p>}
+              {submitted && (
+                <p className="mt-2 t-small text-ink-2">
+                  <span className="font-semibold text-ink">Why: </span>
+                  {q.why}
+                </p>
+              )}
             </fieldset>
           ))}
         </div>
         {!submitted ? (
-          <button disabled={!allAnswered} onClick={submit} className="mt-6 h-11 rounded-full bg-accent px-6 text-sm font-semibold text-accent-ink transition enabled:hover:brightness-95 disabled:opacity-40">
-            Check answers
-          </button>
-        ) : (
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            <span className="tnum font-semibold">{correct}/{lesson.quiz.length} correct</span>
-            <button onClick={() => { setAnswers({}); setSubmitted(false); }} className="text-sm text-muted hover:text-ink">Retry</button>
+            <button disabled={!allAnswered} onClick={submit} className="btn btn-primary">
+              Check answers
+            </button>
+            {!allAnswered && <span className="t-small text-ink-2">Answer {lesson.quiz.length === 2 ? "both questions" : "every question"} to check.</span>}
+          </div>
+        ) : (
+          <div className="mt-6 flex flex-wrap items-center gap-4">
+            <span className="tnum font-semibold">
+              {correct} of {lesson.quiz.length} correct
+            </span>
+            <button
+              onClick={() => {
+                setAnswers({});
+                setSubmitted(false);
+              }}
+              className="btn btn-quiet"
+            >
+              Try again
+            </button>
           </div>
         )}
       </section>
 
       {mission && (
-        <section className="card flex flex-wrap items-center gap-4 p-5">
-          <span className="grid size-11 place-items-center rounded-2xl bg-accent text-accent-ink"><Target className="size-5" /></span>
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-semibold uppercase tracking-wider text-muted">Practice mission · +{mission.xp} XP</div>
-            <div className="font-semibold">{mission.title}</div>
-            <div className="text-sm text-ink-2">{mission.detail}</div>
+        <section className="mt-14 border-y border-rule-strong py-4" aria-labelledby="mission-h">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 id="mission-h" className="t-h3">
+              Practice this in the simulator
+            </h2>
+            <span className="tnum t-micro text-muted">{mission.xp} XP</span>
           </div>
-          {missions[mission.id] ? (
-            <span className="flex items-center gap-1 text-sm font-medium text-up"><CheckCircle2 className="size-4" />Done</span>
-          ) : (
-            <Link href={mission.href} className="inline-flex h-10 items-center rounded-full bg-ink px-4 text-sm font-semibold text-bg">Do it now</Link>
-          )}
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-3">
+            <CheckCell state={missions[mission.id] ? "done" : "todo"} size={28} />
+            <div className="min-w-0 flex-1">
+              <div className="font-medium">{mission.title}</div>
+              <div className="t-small text-ink-2">{mission.detail}</div>
+            </div>
+            {missions[mission.id] ? (
+              <span className="t-small font-medium">Done</span>
+            ) : (
+              <Link href={mission.href} className="btn btn-secondary">
+                Try it now
+              </Link>
+            )}
+          </div>
         </section>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link href={`/coach?lesson=${slug}`} className="inline-flex h-10 items-center gap-2 rounded-full border border-line px-4 text-sm font-medium hover:bg-panel-2">
-          <MessageCircle className="size-4" /> Ask Nova about this lesson
+      <nav className="mt-10 flex flex-wrap items-center justify-between gap-3" aria-label="Lesson navigation">
+        <Link href={`/coach?lesson=${slug}`} className="btn btn-secondary">
+          Ask Nova about this lesson
         </Link>
         <div className="flex gap-2">
-          {prev && <Link href={`/learn/${prev.slug}`} className="inline-flex h-10 items-center gap-1 rounded-full border border-line px-4 text-sm hover:bg-panel-2"><ArrowLeft className="size-4" />Previous</Link>}
-          {next && <Link href={`/learn/${next.slug}`} className="inline-flex h-10 items-center gap-1 rounded-full bg-accent px-4 text-sm font-semibold text-accent-ink hover:brightness-95">Next lesson<ArrowRight className="size-4" /></Link>}
+          {prev && (
+            <Link href={`/learn/${prev.slug}`} className="btn btn-quiet">
+              Previous lesson
+            </Link>
+          )}
+          {next && (
+            <Link href={`/learn/${next.slug}`} className="btn btn-primary">
+              Next lesson
+            </Link>
+          )}
         </div>
-      </div>
+      </nav>
     </article>
   );
 }

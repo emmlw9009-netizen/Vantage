@@ -2,13 +2,13 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowUp, RotateCcw, Sparkles } from "lucide-react";
 import { useApp } from "@/store/app";
 import { buildCoachContext } from "@/lib/coach-context";
 import { offlineAnswer } from "@/lib/offline-coach";
 import { LESSON_MAP } from "@/lib/course";
 import { Markdown } from "@/components/ui";
-import { cn, usd } from "@/lib/format";
+import { NovaByline } from "@/components/marks";
+import { usd } from "@/lib/format";
 import Link from "next/link";
 import { aiGate } from "@/lib/ai-notice";
 
@@ -110,49 +110,55 @@ function Coach() {
   };
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-8.5rem)] max-w-3xl flex-col md:h-[calc(100dvh-7rem)]">
-      <div className="mb-4 flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-2xl bg-coach text-coach-ink"><Sparkles className="size-5" /></span>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-semibold tracking-tight">Coach Nova</h1>
-          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted">
-            <span className={cn("size-1.5 rounded-full", mode === "ai" ? "bg-up" : "bg-warn")} />
-            <span>{mode === "ai" ? "AI coach: sees your portfolio, trades and progress" : mode === "offline" ? "Nova, rules engine: add an API key for the AI coach" : "Connecting…"}</span>
-            <Link href="/disclaimer" className="font-medium text-series-1 underline underline-offset-2">AI coach limits and disclaimer</Link>
+    <div className="flex h-[calc(100dvh-14.5rem)] max-w-[760px] flex-col lg:h-[calc(100dvh-11rem)]">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-baseline gap-3">
+            <h1 className="t-title">Nova</h1>
+            <span className="tag tag-nova">AI coach</span>
+          </div>
+          <p className="mt-2 t-small text-ink-2">
+            {mode === "ai" ? "Nova can see your simulated portfolio, trades and lessons." : mode === "offline" ? "Offline playbook. Answers come from built-in rules, and nothing is sent to an AI service." : "Connecting…"}{" "}
+            <Link href="/disclaimer" className="link">
+              AI coach limits and disclaimer
+            </Link>
           </p>
         </div>
         {chat.length > 0 && (
-          <button onClick={clearChat} className="inline-flex items-center gap-1 rounded-full border border-line px-3 py-1.5 text-xs text-muted hover:text-ink">
-            <RotateCcw className="size-3.5" /> New chat
+          <button onClick={clearChat} className="btn btn-secondary">
+            New conversation
           </button>
         )}
       </div>
 
-      <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 sm:p-6" aria-live="polite">
+      <div className="mt-6 flex min-h-0 flex-1 flex-col border-t border-rule-strong">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto py-6 pr-1" aria-live="polite">
           {chat.length === 0 && (
-            <div className="grid h-full place-content-center text-center">
-              <h2 className="text-2xl font-semibold tracking-tight">Hey{name ? ` ${name}` : ""}, what are we working on?</h2>
-              <p className="mx-auto mt-2 max-w-md text-sm text-ink-2">I can see your positions, trades, scores and lessons. Ask me anything about investing, or about your own decisions.</p>
-              <div className="mx-auto mt-6 grid max-w-xl gap-2 sm:grid-cols-2">
-                {STARTERS.map((s) => (
-                  <button key={s} onClick={() => send(s)} className="rounded-2xl border border-line px-4 py-3 text-left text-sm hover:bg-panel-2">{s}</button>
+            <div>
+              <p className="t-lead text-ink">Ask Nova about a trade, a term, or your last mistake{name ? `, ${name}` : ""}.</p>
+              <ul className="mt-4 border-t border-rule">
+                {STARTERS.map((st) => (
+                  <li key={st}>
+                    <button onClick={() => send(st)} className="flex min-h-11 w-full items-center border-b border-rule text-left t-small text-ink hover:bg-well">
+                      {st}
+                    </button>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           )}
-          {chat.map((m) => (
-            <div key={m.id} className={cn("flex gap-3", m.role === "user" && "justify-end")}>
-              {m.role === "assistant" && <span className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-coach text-coach-ink"><Sparkles className="size-3.5" /></span>}
-              <div className={cn("max-w-[85%] text-[15px] leading-relaxed", m.role === "user" ? "rounded-3xl rounded-br-md bg-ink px-4 py-2.5 text-bg" : "pt-1")}>
-                {m.role === "assistant" ? (
-                  m.content ? <Markdown text={m.content} /> : <span className="inline-flex gap-1 py-2"><Dot /><Dot d={150} /><Dot d={300} /></span>
-                ) : (
-                  m.content
-                )}
+          {chat.map((m) =>
+            m.role === "user" ? (
+              <div key={m.id} className="flex justify-end">
+                <div className="well max-w-[85%] px-4 py-2.5 text-[15px] leading-6 break-words">{m.content}</div>
               </div>
-            </div>
-          ))}
+            ) : (
+              <div key={m.id} className="nova-note">
+                <NovaByline />
+                <div className="mt-1.5">{m.content ? <Markdown text={m.content} /> : <span className="t-small text-ink-2">Nova is writing…</span>}</div>
+              </div>
+            ),
+          )}
           <div ref={endRef} />
         </div>
         <form
@@ -160,9 +166,9 @@ function Coach() {
             e.preventDefault();
             send(input);
           }}
-          className="border-t border-line p-3"
+          className="border-t border-rule pt-3"
         >
-          <div className="flex items-end gap-2 rounded-3xl border border-line bg-panel-2 p-1.5 pl-4 focus-within:border-line-strong">
+          <div className="flex items-end gap-2">
             <textarea
               ref={taRef}
               rows={1}
@@ -174,17 +180,24 @@ function Coach() {
                   send(input);
                 }
               }}
-              placeholder="Ask Nova anything…"
+              placeholder="Ask Nova anything"
               aria-label="Message Nova"
-              className="max-h-40 min-h-[40px] flex-1 resize-none bg-transparent py-2 text-[15px] outline-none placeholder:text-muted"
+              maxLength={2000}
+              className="field max-h-40 min-h-11 flex-1 resize-none py-2.5 leading-6"
             />
-            <button type="submit" disabled={!input.trim() || busy} className="grid size-10 shrink-0 place-items-center rounded-full bg-accent text-accent-ink transition disabled:opacity-40" aria-label="Send">
-              <ArrowUp className="size-5" />
+            <button type="submit" disabled={!input.trim() || busy} className="btn btn-primary min-h-11">
+              Send
             </button>
           </div>
-          <p className="mt-2 text-center text-xs text-muted">
+          <p className="mt-2 t-micro text-ink-2">
             {mode === "ai" ? (
-              <>Nova is an AI coach. It can be wrong. Not investment advice. Your portfolio, trades, name and messages are sent to our AI provider (<Link href="/privacy#ai" className="underline underline-offset-2">privacy policy</Link>).</>
+              <>
+                Nova is an AI coach. It can be wrong. Not investment advice. Your portfolio, trades, name and messages are sent to our AI provider (
+                <Link href="/privacy#ai" className="link">
+                  privacy policy
+                </Link>
+                ).
+              </>
             ) : mode === "offline" ? (
               <>Educational coaching on a simulated market. Not investment advice. What you write here is not sent anywhere.</>
             ) : (
@@ -195,8 +208,4 @@ function Coach() {
       </div>
     </div>
   );
-}
-
-function Dot({ d = 0 }: { d?: number }) {
-  return <span className="size-1.5 animate-bounce rounded-full bg-muted" style={{ animationDelay: `${d}ms` }} />;
 }

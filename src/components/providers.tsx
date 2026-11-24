@@ -64,6 +64,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const aiNoticeAt = useApp((s) => s.profile.aiNoticeAt);
   const push = useToast((s) => s.push);
   const seenTrades = useRef<Set<string> | null>(null);
+  const [storeReady, setStoreReady] = useState(false);
+  useEffect(() => {
+    if (useApp.persist.hasHydrated()) setStoreReady(true);
+    return useApp.persist.onFinishHydration(() => setStoreReady(true));
+  }, []);
 
   // Test-only price driver. Exists only when the verify script sets window.__VANTAGE_TEST__ before load; users never have it.
   useEffect(() => {
@@ -93,6 +98,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   // reviews + fill toasts
   useEffect(() => {
+    // Seed "already seen" only once the persisted store has loaded, so fills from earlier sessions never toast again.
+    if (!storeReady) return;
     if (!seenTrades.current) {
       seenTrades.current = new Set(trades.map((t) => t.id));
     }
@@ -112,7 +119,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         }
       }
     }
-  }, [trades, push, aiNoticeAt]);
+  }, [trades, push, aiNoticeAt, storeReady]);
 
   // missions
   const orders = useApp((s) => s.orders);

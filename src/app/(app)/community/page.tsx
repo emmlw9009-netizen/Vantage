@@ -3,7 +3,7 @@
 import { BRAND } from "@/lib/brand";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Award, Flag, Flame, Heart, MessageCircle, Send, Sparkles, Trophy, Users } from "lucide-react";
+import { Heart } from "lucide-react";
 import { useApp, useEquity, ME, STARTING_CASH } from "@/store/app";
 import { CHALLENGES, MEMBERS, MEMBER_MAP, SEED_POSTS } from "@/lib/community-seed";
 import { TICKER_MAP } from "@/lib/market-data";
@@ -12,7 +12,8 @@ import { levelFor } from "@/lib/course";
 import { cn, pct, timeAgo } from "@/lib/format";
 import { aiGate } from "@/lib/ai-notice";
 import { useToast } from "@/store/toast";
-import { Avatar, Delta, Pill, Segmented, SectionTitle } from "@/components/ui";
+import { Avatar, Delta, Segmented, SectionTitle } from "@/components/ui";
+import { NovaByline, ScoreLoop } from "@/components/marks";
 
 type Tab = "feed" | "leaders" | "challenges";
 const KINDS = [
@@ -50,20 +51,19 @@ async function novaReply(postBody: string): Promise<string> {
 export default function Community() {
   const [tab, setTab] = useState<Tab>("feed");
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Community</h1>
-          <p className="mt-1 text-sm text-ink-2">Share ideas, post lessons, compete on discipline, not just profit.</p>
-        </div>
-        <Segmented kind="tabs" label="Community sections" size="md" value={tab} onChange={setTab} options={[{ value: "feed", label: "Feed" }, { value: "leaders", label: "Leaderboard" }, { value: "challenges", label: "Challenges" }]} />
+    <div>
+      <h1 className="t-title">Community</h1>
+      <p className="mt-2 max-w-[72ch] t-lead">Share ideas and lessons. Ranked on process, not profit.</p>
+      <Segmented kind="tabs" label="Community sections" size="md" value={tab} onChange={setTab} options={[{ value: "feed", label: "Feed" }, { value: "leaders", label: "Leaderboard" }, { value: "challenges", label: "Challenges" }]} className="mt-6" />
+      <p className="mt-4 flex flex-wrap items-baseline gap-2 t-small text-ink-2">
+        <span className="tag">Demo</span>
+        <span className="min-w-0 flex-1">Preview community. Members, posts, comments and leaderboard rows marked Demo are fictional sample content. Your posts are yours, and Nova&apos;s replies are marked AI-generated.</span>
+      </p>
+      <div className="mt-8">
+        {tab === "feed" && <Feed />}
+        {tab === "leaders" && <Leaderboard />}
+        {tab === "challenges" && <Challenges />}
       </div>
-      <div className="flex items-center gap-2 rounded-2xl border border-dashed border-line px-4 py-2.5 text-xs text-muted">
-        <Users className="size-4 shrink-0" /> <span>Preview community. Members, posts, comments and leaderboard rows marked Demo are fictional sample content. Your posts are yours, and Nova&apos;s replies are marked AI-generated.</span>
-      </div>
-      {tab === "feed" && <Feed />}
-      {tab === "leaders" && <Leaderboard />}
-      {tab === "challenges" && <Challenges />}
     </div>
   );
 }
@@ -120,76 +120,115 @@ function Feed() {
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <div className="space-y-4 lg:col-span-2">
-        <div className="card p-4">
-          <div className="flex gap-3">
-            <Avatar id={ME} />
-            <div className="min-w-0 flex-1">
-              <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} placeholder="Share a trade idea, a question or a lesson…" className="w-full resize-none bg-transparent pt-2 text-[15px] outline-none placeholder:text-muted" aria-label="Post text" />
-              <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-line pt-3">
-                {KINDS.map((k) => (
-                  <button key={k.value} onClick={() => setKind(k.value)} className={cn("rounded-full px-3 py-1 text-xs font-medium", kind === k.value ? "bg-ink text-bg" : "bg-panel-2 text-ink-2")}>{k.label}</button>
-                ))}
-                <input value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="$TICKER" className="h-7 w-24 rounded-full border border-line bg-transparent px-3 text-xs uppercase outline-none" aria-label="Ticker" />
-                <button onClick={submit} disabled={!body.trim()} className="ml-auto inline-flex h-10 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-accent-ink disabled:opacity-40">
-                  <Send className="size-4" /> Post
-                </button>
-              </div>
-              <p className="mt-2 text-xs text-muted">Posts follow the <Link href="/community-guidelines" className="text-ink-2 underline underline-offset-2">community guidelines</Link>. Nothing here is investment advice.</p>
+    <div className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="min-w-0">
+        <div className="flex gap-3 border-y border-rule-strong py-4">
+          <Avatar id={ME} />
+          <div className="min-w-0 flex-1">
+            <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} maxLength={2000} placeholder="Write a post. A trade idea, a question, or something you learned." className="field resize-y" aria-label="Post text" />
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Segmented label="Post type" value={kind} onChange={setKind} options={KINDS.map((k) => ({ value: k.value, label: k.label }))} className="flex-wrap" />
+              <input value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="Ticker" maxLength={6} className="field min-h-10 w-24 uppercase" aria-label="Ticker" />
+              <button onClick={submit} disabled={!body.trim()} className="btn btn-primary ml-auto">
+                Post
+              </button>
             </div>
+            <p className="mt-2 t-micro text-ink-2">
+              Posts follow the{" "}
+              <Link href="/community-guidelines" className="link">
+                community guidelines
+              </Link>
+              . Nothing here is investment advice.
+            </p>
           </div>
         </div>
 
         {feed.map((p) => {
           const author = p.authorId === ME ? null : MEMBER_MAP[p.authorId];
           return (
-            <article key={p.id} className="card p-4 sm:p-5">
-              <header className="flex items-center gap-3">
+            <article key={p.id} className="border-b border-rule py-5">
+              <header className="flex items-start gap-3">
                 <Avatar id={p.authorId} />
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-x-2 text-sm">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 t-small">
                     <span className="font-semibold">{author ? author.name : "You"}</span>
-                    {author?.badge && <Pill className={author.id === "u7" ? "bg-accent-soft text-ink" : ""}>{author.id === "u7" && <Sparkles className="size-3" />}{author.badge}</Pill>}
-                    {p.authorId === "u7" && <Pill className="bg-accent-soft text-ink">AI-generated</Pill>}
+                    {p.authorId === "u7" && <span className="tag tag-nova">AI coach</span>}
+                    {author?.badge && p.authorId !== "u7" && <span className="tag">{author.badge}</span>}
+                    {p.authorId === "u7" && <span className="tag tag-nova">AI-generated</span>}
                     {p.demo && <DemoTag what="post" />}
-                    <span className="text-muted">@{author?.handle ?? "you"} · {timeAgo(p.at)}</span>
                   </div>
-                  <div className="text-xs text-muted">{KIND_LABEL[p.kind]}{p.symbol && <> · <Link href={`/markets/${p.symbol}`} className="font-semibold text-series-1 hover:underline">${p.symbol}</Link></>}</div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 t-micro text-ink-2">
+                    <span>@{author?.handle ?? "you"}</span>
+                    <span>{timeAgo(p.at)}</span>
+                    <span>{KIND_LABEL[p.kind]}</span>
+                    {p.symbol && (
+                      <Link href={`/markets/${p.symbol}`} className="link font-semibold">
+                        {p.symbol}
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </header>
-              <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed">{p.body}</p>
-              <div className="mt-3 flex items-center gap-1 text-sm text-muted">
-                <button onClick={() => toggleLike(p.id)} data-like className={cn("inline-flex min-h-10 items-center gap-1.5 rounded-full px-2.5 hover:bg-panel-2", liked[p.id] && "text-down")} aria-pressed={!!liked[p.id]} aria-label={liked[p.id] ? "Unlike" : "Like"}>
-                  <Heart className={cn("size-4", liked[p.id] && "fill-current")} />
-                  {(!p.demo || p.likeCount > 0) && <span className="tnum" data-like-count>{p.likeCount}</span>}
+              <p className="mt-3 whitespace-pre-line break-words text-[15px] leading-6 [overflow-wrap:anywhere]">{p.body}</p>
+              <div className="mt-2 flex items-center gap-1 t-small text-ink-2">
+                <button onClick={() => toggleLike(p.id)} data-like className={cn("inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-md px-2 hover:bg-well", liked[p.id] && "text-ink")} aria-pressed={!!liked[p.id]} aria-label={liked[p.id] ? "Unlike" : "Like"}>
+                  <Heart className={cn("size-4", liked[p.id] && "fill-current")} strokeWidth={1.5} aria-hidden />
+                  {(!p.demo || p.likeCount > 0) && (
+                    <span className="tnum" data-like-count>
+                      {p.likeCount}
+                    </span>
+                  )}
                 </button>
-                <button onClick={() => setOpen((o) => ({ ...o, [p.id]: !o[p.id] }))} className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-2.5 hover:bg-panel-2" aria-label={`Comments, ${p.allComments.length}`}>
-                  <MessageCircle className="size-4" /> <span className="tnum">{p.allComments.length}</span>
+                <button onClick={() => setOpen((o) => ({ ...o, [p.id]: !o[p.id] }))} aria-expanded={!!open[p.id]} className="inline-flex min-h-10 items-center gap-1 rounded-md px-2 hover:bg-well">
+                  Comments <span className="tnum">{p.allComments.length}</span>
                 </button>
-                <button onClick={() => report(p.id)} className="ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-full px-2.5 hover:bg-panel-2" aria-label="Report post">
-                  <Flag className="size-4" /> Report
+                <button onClick={() => report(p.id)} className="ml-auto inline-flex min-h-10 items-center rounded-md px-2 hover:bg-well" aria-label="Report post">
+                  Report
                 </button>
               </div>
               {(open[p.id] || novaTyping === p.id) && (
-                <div className="mt-3 space-y-3 border-t border-line pt-3">
-                  {p.allComments.map((c) => (
-                    <div key={c.id} className="flex gap-2.5">
-                      <Avatar id={c.authorId} size={28} />
-                      <div className="min-w-0 rounded-2xl bg-panel-2 px-3 py-2 text-sm">
-                        <span className="font-semibold">{c.authorId === ME ? "You" : MEMBER_MAP[c.authorId]?.name}</span>{c.authorId === "u7" && <Pill className="mx-1.5 bg-accent-soft text-ink">AI-generated</Pill>}{c.demo && <span className="mx-1.5"><DemoTag what="comment" /></span>}{" "}
-                        <CommentBody text={c.body} />
-                        <div>
-                          <button onClick={() => report(c.id)} className="-ml-2 inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs font-medium text-muted hover:text-ink" aria-label="Report comment">
-                            <Flag className="size-3.5" /> Report
+                <div className="mt-2 space-y-4 border-t border-rule pt-4 sm:ml-11">
+                  {p.allComments.map((c) =>
+                    /* the comment body keeps the rounded-2xl hook verify uses; it has no background, so the radius is invisible */
+                    c.authorId === "u7" ? (
+                      <div key={c.id} className="nova-note rounded-2xl t-small">
+                        <NovaByline
+                          tag="AI coach"
+                          extra={
+                            <>
+                              <span className="tag tag-nova">AI-generated</span>
+                              {c.demo && <DemoTag what="comment" />}
+                            </>
+                          }
+                        />
+                        <div className="t-note mt-1">
+                          <CommentBody text={c.body} />
+                        </div>
+                        <button onClick={() => report(c.id)} className="-ml-2 inline-flex min-h-10 items-center rounded-md px-2 t-micro text-ink-2 hover:text-ink" aria-label="Report comment">
+                          Report
+                        </button>
+                      </div>
+                    ) : (
+                      <div key={c.id} className="flex gap-2.5">
+                        <Avatar id={c.authorId} size={28} />
+                        <div className="min-w-0 rounded-2xl t-small">
+                          <span className="font-semibold">{c.authorId === ME ? "You" : MEMBER_MAP[c.authorId]?.name}</span>
+                          {c.demo && (
+                            <span className="mx-1.5">
+                              <DemoTag what="comment" />
+                            </span>
+                          )}{" "}
+                          <span className="block break-words [overflow-wrap:anywhere]">
+                            <CommentBody text={c.body} />
+                          </span>
+                          <button onClick={() => report(c.id)} className="-ml-2 inline-flex min-h-10 items-center rounded-md px-2 t-micro text-ink-2 hover:text-ink" aria-label="Report comment">
+                            Report
                           </button>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                  {novaTyping === p.id && (
-                    <div className="flex items-center gap-2 text-sm text-muted"><Sparkles className="size-4 animate-pulse text-coach" /> Nova is replying…</div>
+                    ),
                   )}
+                  {novaTyping === p.id && <p className="nova-note t-small text-ink-2">Nova is replying.</p>}
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
@@ -200,8 +239,8 @@ function Feed() {
                     }}
                     className="flex gap-2"
                   >
-                    <input value={draft[p.id] ?? ""} onChange={(e) => setDraft((d) => ({ ...d, [p.id]: e.target.value }))} placeholder="Add a comment…" className="h-9 flex-1 rounded-full border border-line bg-transparent px-4 text-sm outline-none" aria-label="Comment" />
-                    <button className="h-9 rounded-full border border-line px-4 text-sm font-medium hover:bg-panel-2">Reply</button>
+                    <input value={draft[p.id] ?? ""} onChange={(e) => setDraft((d) => ({ ...d, [p.id]: e.target.value }))} maxLength={1000} placeholder="Add a comment" className="field min-h-10 min-w-0 flex-1" aria-label="Comment" />
+                    <button className="btn btn-secondary">Reply</button>
                   </form>
                 </div>
               )}
@@ -209,26 +248,35 @@ function Feed() {
           );
         })}
       </div>
-      <aside className="space-y-4">
+      <aside className="min-w-0 space-y-12">
         <MiniLeaders />
-        <section className="card p-5">
-          <SectionTitle title="Community guidelines" />
-          <ul className="space-y-2 text-sm text-ink-2">
-            <li>• Share your reasoning, not just your result.</li>
-            <li>• Post losses too. They teach the most.</li>
-            <li>• No real-money tips or pump talk.</li>
-            <li>• Be kind. Everyone starts as a rookie.</li>
+        <section aria-labelledby="guide-h">
+          <SectionTitle id="guide-h" title="Guidelines" />
+          <ul className="space-y-2 t-small text-ink-2">
+            <li>Share your reasoning, not just your result.</li>
+            <li>Post losses too. They teach the most.</li>
+            <li>No real-money tips or pump talk.</li>
+            <li>Be kind. Everyone starts somewhere.</li>
           </ul>
-          <p className="mt-3 text-sm"><Link href="/community-guidelines" className="text-series-1 underline underline-offset-2">Read the full guidelines</Link>. Use Report on any post or comment to flag it.</p>
+          <p className="mt-3 t-small">
+            <Link href="/community-guidelines" className="link">
+              Read the full guidelines
+            </Link>
+            . Use Report on any post or comment to flag it.
+          </p>
         </section>
       </aside>
     </div>
   );
 }
 
-/** Marks sample content. Text, not color alone. */
+/** Marks sample content. Text, not colour alone. */
 function DemoTag({ what }: { what: string }) {
-  return <span className="inline-flex items-center rounded-full border border-line px-2 py-0.5 text-xs font-medium text-ink-2" title={`Demo ${what}: sample content, fictional`} data-demo>Demo</span>;
+  return (
+    <span className="tag" title={`Demo ${what}: sample content, fictional`} data-demo>
+      Demo
+    </span>
+  );
 }
 
 function CommentBody({ text }: { text: string }) {
@@ -238,7 +286,12 @@ function CommentBody({ text }: { text: string }) {
     <>
       {parts.map((s, i) => {
         const m = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(s);
-        if (m && m[2].startsWith("/")) return <Link key={i} href={m[2]} className="text-series-1 underline">{m[1]}</Link>;
+        if (m && m[2].startsWith("/"))
+          return (
+            <Link key={i} href={m[2]} className="link">
+              {m[1]}
+            </Link>
+          );
         return <span key={i}>{s.replace(/\*\*/g, "")}</span>;
       })}
     </>
@@ -272,35 +325,42 @@ function Leaderboard() {
   const toggleFollow = useApp((s) => s.toggleFollow);
   const rows = [...MEMBERS.filter((m) => m.id !== "u7"), me].sort((a, b) => b[by] - a[by]);
   return (
-    <section className="card p-2 sm:p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-2 pb-3 pt-1">
-        <p className="text-sm text-ink-2">{by === "disciplineScore" ? "Ranked by average coach score: process over luck." : "Ranked by simulated total return since start."}</p>
-        <Segmented value={by} onChange={setBy} options={[{ value: "disciplineScore", label: "Discipline" }, { value: "returnPct", label: "Return" }]} />
+    <section aria-labelledby="lb-h" className="max-w-[880px]">
+      <div className="sec-head">
+        <h2 id="lb-h" className="t-h2">
+          Leaderboard
+        </h2>
+        <Segmented label="Rank by" value={by} onChange={setBy} options={[{ value: "disciplineScore", label: "Process score" }, { value: "returnPct", label: "Return" }]} />
       </div>
-      <p className="px-2 pb-3 text-xs text-muted" data-testid="sim-results-note"><strong className="font-semibold text-ink-2">Simulated results.</strong> Not real trades. They don&apos;t include fees, slippage or real market conditions, and past simulated results don&apos;t predict real ones. Rows marked Demo are fictional.</p>
-      <ol className="divide-y divide-line">
+      <p className="mt-3 t-small text-ink-2">{by === "disciplineScore" ? "Ranked by average process score. Process over luck." : "Ranked by simulated total return since the start."}</p>
+      <p className="mt-1 t-micro text-ink-2" data-testid="sim-results-note">
+        <strong className="font-semibold text-ink">Simulated results.</strong> Not real trades. They don&apos;t include fees, slippage or real market conditions, and past simulated results don&apos;t predict real ones. Rows marked Demo are fictional.
+      </p>
+      <ol className="mt-4 border-t border-rule-strong">
         {rows.map((r, i) => (
-          <li key={r.id} className={cn("flex items-center gap-3 px-2 py-3", r.id === ME && "rounded-2xl bg-accent-soft")}>
-            <span className="tnum w-6 text-center text-sm font-semibold text-muted">{i + 1}</span>
-            <Avatar id={r.id} />
-            <div className="min-w-0 flex-1">
-              <div className="truncate font-medium">{r.name}{r.id !== ME && <span className="ml-2 align-middle"><DemoTag what="member" /></span>} {i === 0 && <Trophy className="inline size-4 text-warn" aria-label="First place" />}</div>
-              <div className="truncate text-xs text-muted">{r.level}{"bio" in r && r.bio ? ` · ${r.bio}` : ""}</div>
+          <li key={r.id} className={cn("grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-rule py-3 sm:grid-cols-[28px_minmax(0,1fr)_80px_96px_96px]", r.id === ME && "bg-well")}>
+            <span className="tnum text-center t-small font-semibold text-ink-2">{i + 1}</span>
+            <div className="flex min-w-0 items-center gap-3">
+              <Avatar id={r.id} />
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2 font-medium">
+                  <span className="truncate">{r.name}</span>
+                  {r.id !== ME && <DemoTag what="member" />}
+                </div>
+                <div className="truncate t-micro text-ink-2">{r.level}</div>
+              </div>
             </div>
-            <div className="hidden w-20 text-right text-sm sm:block">
-              <div className="tnum font-semibold">{r.disciplineScore || "—"}</div>
-              <div className="text-xs text-muted">score</div>
-            </div>
-            <div className="w-20 text-right text-sm">
+            <div className="hidden text-right sm:block">{r.disciplineScore ? <ScoreLoop score={r.disciplineScore} size="s" /> : <span className="t-small text-ink-2">None</span>}</div>
+            <div className="text-right t-small">
               <Delta ratio={r.returnPct} size="xs" />
-              <div className="text-xs text-muted">{pct(r.winRate, 0, false)} wins</div>
+              <div className="t-micro text-ink-2">{pct(r.winRate, 0, false)} wins</div>
             </div>
             {r.id !== ME ? (
-              <button onClick={() => toggleFollow(r.id)} className={cn("hidden h-8 rounded-full px-3 text-xs font-semibold sm:block", following[r.id] ? "border border-line text-muted" : "bg-ink text-bg")}>
+              <button onClick={() => toggleFollow(r.id)} aria-pressed={!!following[r.id]} className="btn btn-secondary hidden min-h-9 px-3 t-small sm:inline-flex">
                 {following[r.id] ? "Following" : "Follow"}
               </button>
             ) : (
-              <span className="hidden w-[72px] sm:block" />
+              <span className="hidden sm:block" />
             )}
           </li>
         ))}
@@ -313,19 +373,18 @@ function MiniLeaders() {
   const me = useMyRow();
   const rows = [...MEMBERS.filter((m) => m.id !== "u7"), me].sort((a, b) => b.disciplineScore - a.disciplineScore).slice(0, 5);
   return (
-    <section className="card p-5">
-      <SectionTitle title="Discipline leaders" action={<Award className="size-4 text-muted" />} />
-      <p className="-mt-2 mb-3 text-xs text-muted">Demo members, simulated scores.</p>
-      <ol className="space-y-3">
+    <section aria-labelledby="ml-h">
+      <SectionTitle id="ml-h" title="Process leaders" />
+      <p className="mb-2 t-micro text-ink-2">Demo members, simulated scores.</p>
+      <ul className="t-small">
         {rows.map((r, i) => (
-          <li key={r.id} className="flex items-center gap-3 text-sm">
-            <span className="tnum w-4 text-muted">{i + 1}</span>
-            <Avatar id={r.id} size={28} />
+          <li key={r.id} className="flex items-center gap-3 border-b border-rule py-2">
+            <span className="tnum w-4 text-ink-2">{i + 1}</span>
             <span className="min-w-0 flex-1 truncate font-medium">{r.name}</span>
-            <span className="tnum font-semibold">{r.disciplineScore || "—"}</span>
+            <span className="tnum font-semibold">{r.disciplineScore || "None"}</span>
           </li>
         ))}
-      </ol>
+      </ul>
     </section>
   );
 }
@@ -334,20 +393,25 @@ function Challenges() {
   const following = useApp((s) => s.following);
   const toggleFollow = useApp((s) => s.toggleFollow);
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="max-w-[880px] border-t border-rule-strong">
       {CHALLENGES.map((c) => {
         const joined = !!following[`challenge:${c.id}`];
         return (
-          <section key={c.id} className="card flex flex-col p-5">
-            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted"><Flame className="size-4 text-warn" /> Ends in {c.endsInDays} days <DemoTag what="challenge" /></div>
-            <h2 className="mt-2 text-lg font-semibold tracking-tight">{c.title}</h2>
-            <p className="mt-1 flex-1 text-sm text-ink-2">{c.detail}</p>
-            <div className="mt-4 flex items-center justify-between text-xs text-muted">
-              <span>{joined ? "You joined" : "Sample challenge"}</span>
-              <span className="font-semibold text-accent">+{c.xp} XP</span>
+          <section key={c.id} aria-labelledby={`ch-${c.id}`} className="grid grid-cols-1 gap-3 border-b border-rule py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-8">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 id={`ch-${c.id}`} className="t-h3">
+                  {c.title}
+                </h2>
+                <DemoTag what="challenge" />
+              </div>
+              <p className="mt-1 t-small text-ink-2">{c.detail}</p>
+              <p className="tnum mt-1 t-micro text-ink-2">
+                Ends in {c.endsInDays} days. {c.xp} XP. {joined ? "You joined." : "Sample challenge."}
+              </p>
             </div>
-            <button onClick={() => toggleFollow(`challenge:${c.id}`)} className={cn("mt-3 h-10 rounded-full text-sm font-semibold", joined ? "border border-line text-ink-2" : "bg-accent text-accent-ink")}>
-              {joined ? "Joined ✓" : "Join challenge"}
+            <button onClick={() => toggleFollow(`challenge:${c.id}`)} aria-pressed={joined} className={cn("btn", joined ? "btn-secondary" : "btn-primary")}>
+              {joined ? "Joined" : "Join challenge"}
             </button>
           </section>
         );
