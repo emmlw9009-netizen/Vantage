@@ -154,6 +154,7 @@ export default function SymbolPage() {
                 <Stat k="Beta" v={t.beta.toFixed(2)} lesson="how-the-market-moves" />
                 <Stat k="50-day average" v={usd(ma50)} lesson="moving-averages" />
               </dl>
+              <p className="mt-3 t-micro text-ink-2">Approximate figures, for practice, as of late 2026. Not live data.</p>
               <p className="mt-4 border-t border-rule pt-3 t-small text-ink-2">
                 <span className="font-medium text-ink">Volatility:</span> {volWord(t.vol)}. {price && price > ma50 ? "Trading above its 50-day average." : "Trading below its 50-day average."}
               </p>

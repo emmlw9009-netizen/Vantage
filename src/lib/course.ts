@@ -69,12 +69,12 @@ export const COURSE: Module[] = [
         slug: "what-is-a-stock",
         title: "What a stock really is",
         minutes: 4,
-        summary: "A share is a slice of ownership in a real business — its profits, its risks and its future.",
+        summary: "A share is a slice of ownership in a real business, its profits, its risks and its future.",
         sections: [
           {
             heading: "You're buying a piece of a business",
             body: [
-              "When you buy one share of Apple, you own a tiny fraction of the company: its factories, its cash, its brand and, most importantly, its future profits. Big public companies have billions of shares, so one share is a very small slice — but it's a real claim on a real business.",
+              "When you buy one share of Apple, you own a tiny fraction of the company: its factories, its cash, its brand and, most importantly, its future profits. Big public companies have billions of shares, so one share is a very small slice, but it's a real claim on a real business.",
               "Companies sell shares to raise money to grow. After that first sale (the IPO), shares trade between investors on an exchange. The company isn't involved in your trade; you're buying from another investor who wants to sell.",
             ],
           },
@@ -104,14 +104,14 @@ export const COURSE: Module[] = [
             heading: "Bid, ask and the spread",
             body: [
               "Every stock has a bid (the highest price a buyer will pay right now) and an ask (the lowest price a seller will accept). The gap between them is the spread. Popular stocks like SPY have spreads of a penny; thinly traded ones can cost you a lot more.",
-              "A market order buys at the ask and sells at the bid. That's why you lose a tiny amount the moment you buy — the slippage you see in this simulator models exactly that.",
+              "A market order buys at the ask and sells at the bid. That's why you lose a tiny amount the moment you buy, the slippage you see in this simulator models exactly that.",
             ],
           },
           {
             heading: "Market-wide moves and beta",
             body: [
               "Some news moves the entire market: inflation reports, interest-rate decisions, jobs data. When that happens, most stocks move together. Beta measures how strongly a stock reacts to the overall market. A beta of 2 (like TSLA in our sim) tends to move about twice as much as the market; a beta of 0.5 (like KO) about half as much.",
-              "Volatility is how much a price swings. High-volatility stocks can make you money fast — and lose it just as fast. Watch the news feed in the simulator: a macro headline lifts or sinks almost everything, scaled by each stock's beta.",
+              "Volatility is how much a price swings. High-volatility stocks can make you money fast, and lose it just as fast. Watch the news feed in the simulator: a macro headline lifts or sinks almost everything, scaled by each stock's beta.",
             ],
           },
         ],
@@ -125,7 +125,7 @@ export const COURSE: Module[] = [
         slug: "order-types",
         title: "Order types that protect you",
         minutes: 5,
-        summary: "Market, limit and stop orders — and when to use each one.",
+        summary: "Market, limit and stop orders, and when to use each one.",
         sections: [
           {
             heading: "Market vs. limit",
@@ -137,7 +137,7 @@ export const COURSE: Module[] = [
           {
             heading: "Stops and brackets",
             body: [
-              "A stop order sits below the price and turns into a sell if the stock falls to it. It's your pre-planned exit if you're wrong. A take-profit is a limit sell above the price — your pre-planned exit if you're right.",
+              "A stop order sits below the price and turns into a sell if the stock falls to it. It's your pre-planned exit if you're wrong. A take-profit is a limit sell above the price, your pre-planned exit if you're right.",
               "Put both on one entry and you have a bracket order: when one leg fills, the other is cancelled automatically. That's how you decide calmly in advance instead of emotionally in the moment. The order ticket here builds brackets for you.",
             ],
           },
@@ -195,7 +195,7 @@ export const COURSE: Module[] = [
           {
             heading: "Why stops exist",
             body: [
-              "Every trade is a hypothesis: \"I think this goes up because…\". A stop-loss marks the price where your hypothesis is clearly wrong. When it's hit, you're not giving up — you're following the evidence.",
+              "Every trade is a hypothesis: \"I think this goes up because…\". A stop-loss marks the price where your hypothesis is clearly wrong. When it's hit, you're not giving up, you're following the evidence.",
               "Without a stop, losing trades tend to turn into \"long-term investments\". That's how a small loss can grow into a big one.",
             ],
           },
@@ -203,7 +203,7 @@ export const COURSE: Module[] = [
             heading: "Where to put it",
             body: [
               "Put stops at a level that would actually invalidate your idea: below a recent support level, below a key moving average, or at a fixed percentage that fits the stock's volatility. A stop that's too tight on a volatile stock (like TSLA) gets hit by normal noise.",
-              "Rule of thumb: the more volatile the stock, the wider the stop — and the smaller the position, so your dollar risk stays the same.",
+              "Rule of thumb: the more volatile the stock, the wider the stop, and the smaller the position, so your dollar risk stays the same.",
             ],
           },
         ],
@@ -278,7 +278,7 @@ export const COURSE: Module[] = [
           {
             heading: "Spotting a trend",
             body: [
-              "An uptrend is a series of higher highs and higher lows. A downtrend is lower highs and lower lows. Anything else is a range. That's it — no indicators needed.",
+              "An uptrend is a series of higher highs and higher lows. A downtrend is lower highs and lower lows. Anything else is a range. That's it, no indicators needed.",
               "\"The trend is your friend\" is common advice because buying with the trend means the overall flow of money is on your side. Buying a stock in a clear downtrend is betting you've spotted the exact bottom.",
             ],
           },
@@ -299,7 +299,7 @@ export const COURSE: Module[] = [
           {
             heading: "Floors and ceilings",
             body: [
-              "Support is a price where buying has stepped in repeatedly — a floor. Resistance is a price where selling has capped rallies — a ceiling. They exist because people remember prices: \"I'll buy more if it gets back to $180.\"",
+              "Support is a price where buying has stepped in repeatedly, a floor. Resistance is a price where selling has capped rallies, a ceiling. They exist because people remember prices: \"I'll buy more if it gets back to $180.\"",
               "Support and resistance make natural places for stops and targets: stop just below support, target just below resistance.",
             ],
           },
@@ -317,7 +317,7 @@ export const COURSE: Module[] = [
             heading: "What they show",
             body: [
               "A 50-day moving average is the average closing price over the last 50 days, recalculated daily. It smooths out daily noise. Price above a rising 50-day average generally means a healthy uptrend.",
-              "Many investors watch the 200-day average as the line between a long-term uptrend and a downtrend. Moving averages lag the price — they confirm, they don't predict.",
+              "Many investors watch the 200-day average as the line between a long-term uptrend and a downtrend. Moving averages lag the price, they confirm, they don't predict.",
             ],
           },
         ],
@@ -340,13 +340,13 @@ export const COURSE: Module[] = [
           {
             heading: "The quarterly report card",
             body: [
-              "Every quarter, public companies report revenue (sales) and earnings (profit). Earnings per share (EPS) is profit divided by the number of shares. Analysts publish estimates beforehand, and the stock reacts to how results compare with those expectations — not to whether the numbers are \"good\".",
-              "A company can grow profit 30% and still fall if everyone expected 40%. Guidance — what management says about the next quarter — often matters even more than the results.",
+              "Every quarter, public companies report revenue (sales) and earnings (profit). Earnings per share (EPS) is profit divided by the number of shares. Analysts publish estimates beforehand, and the stock reacts to how results compare with those expectations, not to whether the numbers are \"good\".",
+              "A company can grow profit 30% and still fall if everyone expected 40%. Guidance, what management says about the next quarter, often matters even more than the results.",
             ],
           },
         ],
         callout: { title: "In the simulator", body: "Earnings and guidance headlines cause the biggest jumps. Holding a big position into an earnings event is a gamble on a coin flip you can't control." },
-        keyPoints: ["The market reacts to results vs. expectations", "Guidance about the future often matters most", "Earnings days bring big gaps — size down"],
+        keyPoints: ["The market reacts to results vs. expectations", "Guidance about the future often matters most", "Earnings days bring big gaps, size down"],
         quiz: [{ q: "A company beats last year's profit by 30%, but the stock drops. Most likely why?", options: ["Prices are random", "Expectations were higher", "EPS doesn't matter", "The market was closed"], answer: 1, why: "Stocks move on results relative to expectations." }],
       },
       {
@@ -370,7 +370,7 @@ export const COURSE: Module[] = [
         slug: "reading-the-news",
         title: "Reading the news like a pro",
         minutes: 4,
-        summary: "Separate signal from noise — and recognize when the move already happened.",
+        summary: "Separate signal from noise, and recognize when the move already happened.",
         sections: [
           {
             heading: "Priced in",
@@ -380,7 +380,7 @@ export const COURSE: Module[] = [
             ],
           },
         ],
-        keyPoints: ["Most news is priced in within minutes", "Ask whether it changes long-term earnings", "Don't confuse a headline with a thesis"],
+        keyPoints: ["News is often priced in quickly", "Ask whether it changes long-term earnings", "Don't confuse a headline with a thesis"],
         quiz: [{ q: "An analyst upgrade sends a stock up 5% in minutes. What's the risk of buying now?", options: ["None", "You're paying for news that's already priced in", "Upgrades always keep working", "Analysts are always wrong"], answer: 1, why: "The fast money has already moved. You're paying the post-news price." }],
       },
     ],
@@ -416,14 +416,14 @@ export const COURSE: Module[] = [
           {
             heading: "Losses hurt twice as much",
             body: [
-              "Kahneman and Tversky's prospect theory research found that people weigh losses more heavily than equal gains. In their experiments the effect was often estimated at roughly two to one. So we avoid realizing losses (\"it'll come back\") and rush to lock in gains (\"take the money\"). That's exactly backwards.",
-              "Averaging down — buying more of a losing stock — can be rational if the thesis is intact, but it's often just loss aversion in disguise. Ask: would I buy this today if I didn't already own it?",
+              "Kahneman and Tversky's prospect theory research found that people weigh losses more heavily than equal gains. A later estimate (Tversky and Kahneman, 1992) put the ratio at roughly two to one in their experiments. So we avoid realizing losses (\"it'll come back\") and rush to lock in gains (\"take the money\"). That's exactly backwards.",
+              "Averaging down, buying more of a losing stock, can be rational if the thesis is intact, but it's often just loss aversion in disguise. Ask: would I buy this today if I didn't already own it?",
             ],
           },
         ],
         keyPoints: ["Losses tend to feel worse than equal gains feel good (roughly 2× in studies)", "\"Would I buy it today?\" cuts through the bias", "Averaging down needs an intact thesis"],
         quiz: [{ q: "Which question best counters loss aversion on a losing position?", options: ["How much am I down?", "Would I buy it today at this price?", "When will it come back?", "What did I pay?"], answer: 1, why: "It forces a decision on the present, not on your entry price." }],
-        sources: [{ label: "Kahneman and Tversky (1979), Prospect Theory: An Analysis of Decision under Risk", url: "https://doi.org/10.2307/1914185" }],
+        sources: [{ label: "Kahneman and Tversky (1979), Prospect Theory: An Analysis of Decision under Risk", url: "https://doi.org/10.2307/1914185" }, { label: "Tversky and Kahneman (1992), Advances in prospect theory: cumulative representation of uncertainty", url: "https://doi.org/10.1007/BF00122574" }],
       },
       {
         slug: "overtrading",

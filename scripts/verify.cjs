@@ -592,6 +592,216 @@ async function consent(page) {
     await c.close();
   }
   {
+    // I-A: chat written before the AI notice was acknowledged must never reach the provider
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+    const p = await c.newPage();
+    watch(p, "ai-history");
+    let mode = "offline";
+    const posts = [];
+    await p.route("**/api/coach", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ json: { mode } });
+      posts.push(route.request().postDataJSON());
+      return route.fulfill({ status: 200, contentType: "text/plain", body: "Mock AI reply for the history check." });
+    });
+    await p.goto(`${BASE}/coach`);
+    await p.getByText(/Offline playbook/).waitFor({ timeout: 8000 });
+    await p.getByLabel("Message Nova").fill("SECRET-OFFLINE-NOTE about my plan");
+    await p.getByLabel("Message Nova").press("Enter");
+    await waitFor(async () => { const ch = (await state(p)).chat; return ch.length >= 2 && ch[ch.length - 1].role === "assistant" && ch[ch.length - 1].content.length > 10; }, 15000, 250);
+    check("offline mode: nothing is POSTed while chatting", posts.length === 0);
+    mode = "ai";
+    await p.reload();
+    const dlg = p.getByRole("dialog", { name: "Nova uses an AI service" });
+    await dlg.waitFor({ timeout: 8000 });
+    await dlg.getByRole("button", { name: "I understand" }).click();
+    await p.getByLabel("Message Nova").fill("A brand new question after the notice");
+    await p.getByLabel("Message Nova").press("Enter");
+    await waitFor(async () => posts.length > 0, 8000, 250);
+    const body = JSON.stringify(posts[0] ?? {});
+    check("AI history: messages written before the notice are never sent", posts.length === 1 && !body.includes("SECRET-OFFLINE-NOTE") && body.includes("A brand new question after the notice"), body.slice(0, 200));
+    const earlier = (await state(p)).chat.filter((m) => m.content && body.includes(m.content) === false).length;
+    check("AI history: no earlier chat text appears in the request", earlier > 0 && (posts[0].messages ?? []).length === 1, `${(posts[0]?.messages ?? []).length} messages sent`);
+    check("earlier messages are visibly marked as kept on this device", (await p.getByText("Kept on this device").count()) >= 1);
+    await c.close();
+  }
+  {
+    // I-B: a failed probe is "unknown" on /coach: no offline claim, nothing sent until a probe succeeds
+    const c0 = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+    const p0 = await c0.newPage();
+    watch(p0, "probe-ack");
+    await p0.route("**/api/coach", (route) => (route.request().method() === "GET" ? route.fulfill({ json: { mode: "ai" } }) : route.continue()));
+    await p0.goto(`${BASE}/coach`);
+    await p0.getByRole("dialog", { name: "Nova uses an AI service" }).getByRole("button", { name: "I understand" }).click();
+    await p0.waitForFunction(() => !!JSON.parse(localStorage.getItem("sp-app")).state.profile.aiNoticeAt);
+    const acked = await c0.storageState();
+    await c0.close();
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: acked });
+    const p = await c.newPage();
+    p.on("pageerror", (e) => errors.push(`[probe-unknown] pageerror: ${e.message}`)); // aborted probes log a network console error
+    let probeOk = false;
+    const posts = [];
+    await p.route("**/api/coach", (route) => {
+      if (route.request().method() === "GET") return probeOk ? route.fulfill({ json: { mode: "ai" } }) : route.abort();
+      posts.push(route.request().postDataJSON());
+      return route.fulfill({ status: 200, contentType: "text/plain", body: "Mock AI reply after the probe recovered." });
+    });
+    await p.goto(`${BASE}/coach`);
+    await p.getByText(/Can.t tell yet whether the AI coach is on/).waitFor({ timeout: 8000 });
+    const page1 = await p.locator("main").innerText();
+    check("failed probe: header and footer say unknown, never offline or not sent anywhere", !/Offline playbook|not sent anywhere|stays on this device|Nova can see your/.test(page1) && /nothing you write is sent until the check succeeds/.test(page1), page1.slice(0, 160).replace(/\s+/g, " "));
+    await p.getByLabel("Message Nova").fill("Message while the probe is failing");
+    await p.getByLabel("Message Nova").press("Enter");
+    await waitFor(async () => { const ch = (await state(p)).chat; return ch.some((m) => m.content === "Message while the probe is failing") && ch[ch.length - 1].role === "assistant" && ch[ch.length - 1].content.length > 10; }, 15000, 250);
+    check("failed probe: the message is answered locally and nothing is POSTed", posts.length === 0);
+    probeOk = true;
+    await p.getByLabel("Message Nova").fill("Message after the probe recovered");
+    await p.getByLabel("Message Nova").press("Enter");
+    await waitFor(async () => posts.length > 0, 8000, 250);
+    const sent = JSON.stringify(posts[0] ?? {});
+    check("after a successful probe the POST is made, without the message typed during the failure", posts.length === 1 && sent.includes("Message after the probe recovered") && !sent.includes("Message while the probe is failing"), sent.slice(0, 200));
+    check("after a successful probe the footer states what is sent", await p.getByText(/are sent to our AI provider/).first().isVisible());
+    await c.close();
+  }
+  {
+    // M-1: no trade review (AI or local) while the terms gate is up
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+    const p = await c.newPage();
+    watch(p, "review-gate");
+    const reqs = [];
+    p.on("request", (r) => /\/api\/(coach|review)/.test(r.url()) && reqs.push(`${r.method()} ${new URL(r.url()).pathname}`));
+    await p.route("**/api/coach", (route) => (route.request().method() === "GET" ? route.fulfill({ json: { mode: "ai" } }) : route.continue()));
+    await p.route("**/api/review", (route) => route.fulfill({ json: { offline: true } }));
+    await p.addInitScript(() => {
+      if (sessionStorage.getItem("rg-patched")) return;
+      sessionStorage.setItem("rg-patched", "1");
+      const raw = localStorage.getItem("sp-app");
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      s.state.profile.consent = { version: "2000-01-01", acceptedAt: new Date().toISOString() };
+      s.state.profile.aiNoticeAt = new Date().toISOString();
+      const t = { ...s.state.trades[0], id: "pending-review-test", reviewStatus: "pending" };
+      delete t.review;
+      s.state.trades = [t, ...s.state.trades];
+      localStorage.setItem("sp-app", JSON.stringify(s));
+    });
+    await p.goto(`${BASE}/dashboard`);
+    await p.getByRole("dialog").waitFor({ timeout: 8000 });
+    await p.waitForTimeout(6000);
+    const st1 = (await state(p)).trades.find((t) => t.id === "pending-review-test");
+    check("terms gate up: no review is requested and the trade stays pending", st1?.reviewStatus === "pending" && !reqs.some((r) => r.startsWith("POST")), reqs.join(","));
+    await p.getByLabel(/I.m 18 or older/).check();
+    await p.getByRole("button", { name: "Agree and continue" }).click();
+    await waitFor(async () => (await state(p)).trades.find((t) => t.id === "pending-review-test")?.reviewStatus === "done", 15000, 250);
+    check("after agreeing, the pending review is requested", reqs.includes("POST /api/review"), reqs.join(","));
+    await c.close();
+  }
+  {
+    // status bar must not cover the Buy button or the end of a long page (1440x900)
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+    const p = await c.newPage();
+    watch(p, "statusbar");
+    await p.goto(`${BASE}/markets/NVDA`);
+    const buy = p.getByRole("button", { name: /^Buy \d+ NVDA$/ });
+    await buy.waitFor();
+    const probe = () => p.evaluate(() => {
+      const bar = document.querySelector("footer.fixed").getBoundingClientRect();
+      const b = [...document.querySelectorAll("button")].find((x) => /^Buy \d+ NVDA$/.test(x.textContent.trim()))?.getBoundingClientRect();
+      return { barTop: bar.top, buyBottom: b?.bottom, buyTop: b?.top };
+    });
+    const ys = [];
+    for (const y of [400, 100000]) {
+      await p.evaluate((yy) => window.scrollTo(0, yy), y);
+      await p.waitForTimeout(250);
+      ys.push(await probe());
+    }
+    check("1440x900: the Buy button scrolls fully into view above the status bar", ys.every((r) => r.buyBottom <= r.barTop - 4 && r.buyTop >= 0), JSON.stringify(ys));
+    const risk = await p.getByRole("group", { name: "Size by risk" }).getByRole("button").evaluateAll((bs) => bs.map((b) => Math.round(b.getBoundingClientRect().top)));
+    check("1440x900: the three size-by-risk buttons sit on one row", risk.length === 3 && new Set(risk).size === 1, risk.join(","));
+    const links = await p.locator("footer.fixed a, footer.fixed button").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+    const barH = await p.evaluate(() => Math.round(document.querySelector("footer.fixed").getBoundingClientRect().height));
+    check("status bar links are at least 40px tall and the bar stays light (at most 52px)", links.length >= 4 && links.every((h) => h >= 40) && barH <= 52, `links ${links.join(",")} bar ${barH}`);
+    for (const route of ["/dashboard", "/journal", "/learn"]) {
+      await p.goto(`${BASE}${route}`);
+      await p.waitForTimeout(1200);
+      await p.evaluate(() => window.scrollTo(0, 1e6));
+      await p.waitForTimeout(300);
+      const gap = await p.evaluate(() => {
+        const bar = document.querySelector("footer.fixed").getBoundingClientRect();
+        let el = document.querySelector("main");
+        for (;;) {
+          const kids = [...el.children].filter((k) => k.getBoundingClientRect().height > 0 && getComputedStyle(k).display !== "none");
+          if (!kids.length) break;
+          el = kids[kids.length - 1];
+        }
+        return { barTop: Math.round(bar.top), bottom: Math.round(el.getBoundingClientRect().bottom), tag: el.tagName };
+      });
+      check(`1440x900: the last element of ${route} scrolls fully above the status bar`, gap.bottom <= gap.barTop - 8, JSON.stringify(gap));
+    }
+    await c.close();
+  }
+  {
+    // F1: a new user sees "Start here" instead of an empty template; it hides after the first buy with a stop-loss
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const p = await c.newPage();
+    watch(p, "start-here");
+    await p.goto(`${BASE}/dashboard`);
+    await p.getByPlaceholder("Your first name").fill("Riley");
+    await consent(p);
+    await p.getByRole("button", { name: "Skip" }).click();
+    const sh = p.getByTestId("start-here");
+    await sh.waitFor({ timeout: 10000 });
+    const rows = await sh.locator("li").count();
+    check("new user: Start here shows three steps and an Open SPY link to /markets/SPY", rows === 3 && (await sh.getByRole("link", { name: "Open SPY" }).getAttribute("href")) === "/markets/SPY");
+    check("new user: no empty chart frame, zero deltas or zeroed stats", (await p.getByText("Realized P&L").count()) === 0 && (await p.locator('svg[aria-label="Account value over time"], [aria-label="Account value over time"]').count()) === 0 && (await p.getByText("since you started with $100,000").count()) === 0);
+    await p.goto(`${BASE}/markets/SPY`);
+    await p.getByLabel(/Why are you making this trade/).fill("I expect the broad market to keep rising because earnings are steady, and I am wrong if it closes under the recent low.");
+    await p.locator("#stop").waitFor();
+    await p.getByRole("button", { name: "−5%" }).first().click();
+    await p.getByRole("button", { name: /^Buy \d+ SPY$/ }).click();
+    await waitFor(async () => (await state(p)).orders.some((o) => o.role === "stop-loss"), 10000, 250);
+    await p.goto(`${BASE}/dashboard`);
+    await p.getByText("Realized P&L").waitFor({ timeout: 10000 });
+    check("after the first buy with a stop-loss, Start here is gone and the stats are shown", (await p.getByTestId("start-here").count()) === 0);
+    await c.close();
+  }
+  {
+    // F2: every app route has its own descriptive title
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+    const p = await c.newPage();
+    watch(p, "titles");
+    const titles = {};
+    for (const r of ["/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", "/learn", "/learn/position-sizing", "/coach", "/community", "/journal", "/settings"]) {
+      await p.goto(`${BASE}${r}`);
+      titles[r] = await p.title();
+    }
+    const vals = Object.values(titles);
+    check("every app route has a unique title ending in Vantage, with no middle dot", new Set(vals).size === vals.length && vals.every((t) => /Vantage$/.test(t) && !t.includes("\u00b7")), JSON.stringify(titles));
+    check("titles name the page (Markets, NVDA, Coach)", /^Markets/.test(titles["/markets"]) && /NVDA/.test(titles["/markets/NVDA"]) && /^Coach/.test(titles["/coach"]));
+    await c.close();
+  }
+  {
+    // F3: Settings shows no raw bracketed placeholder; the Terms mark placeholders as to be completed
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+    const p = await c.newPage();
+    watch(p, "placeholders");
+    await p.goto(`${BASE}/settings`);
+    await p.getByText("Membership").waitFor();
+    check("settings shows no raw bracketed placeholder", !/\[[^\]]+@[^\]]+\]|\[legal/.test(await p.locator("main").innerText()));
+    await p.goto(`${BASE}/terms`);
+    await p.locator("mark.ph").first().waitFor({ timeout: 8000 });
+    check("terms render bracketed placeholders with a visible to-be-completed mark", (await p.locator("mark.ph").count()) >= 2);
+    await c.close();
+  }
+  {
+    // F4: no emoji in seed content
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+    const p = await c.newPage();
+    watch(p, "zero-delta");
+    await p.goto(`${BASE}/community`);
+    check("community seed posts contain no emoji", !/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(await p.locator("main").innerText()));
+    await c.close();
+  }
+  {
     // settings: export, theme, reset, delete
     const c = await browser.newContext({ viewport: { width: 1440, height: 1000 }, storageState: storageNow, acceptDownloads: true });
     const p = await c.newPage();
@@ -677,17 +887,19 @@ async function consent(page) {
       localStorage.setItem("sp-market", JSON.stringify(st));
     });
     await p.goto(`${BASE}/markets`);
-    await p.getByText("Live headlines").waitFor();
+    await p.getByText("Simulated headlines").waitFor();
     await p.waitForTimeout(1500);
     const heads = await p.evaluate(() => JSON.parse(localStorage.getItem("sp-market")).state.news.map((n) => n.headline));
     check("stale stored headlines (regulator inquiry, CFO departs) are dropped on load", heads.length > 0 && !heads.some((h) => /inquiry|CFO|delays|cuts outlook|misses on revenue|margins shrink/i.test(h)), heads.slice(0, 2).join(" | "));
     check("every stored headline matches a simulation template", heads.every((h) => /simulat|hypothetical/i.test(h)), heads.find((h) => !/simulat|hypothetical/i.test(h)) || "");
-    const items = await p.locator("section:has-text('Live headlines') ul > li").count();
-    const tags = await p.locator("section:has-text('Live headlines') [data-testid=sim-tag]").allInnerTexts();
+    const items = await p.locator("section:has-text('Simulated headlines') ul > li").count();
+    const tags = await p.locator("section:has-text('Simulated headlines') [data-testid=sim-tag]").allInnerTexts();
     check("every headline carries a visible Simulated tag", items > 0 && tags.length === items && tags.every((t) => t.trim() === "Simulated"), `${tags.length} tags for ${items} headlines`);
     check("news panel says it is fictional and not affiliated", (await p.getByText(/Fictional scenarios for practice\. Not real news/).first().isVisible()) && (await p.getByText(/Not affiliated with or endorsed by any company named/).first().isVisible()));
     await p.goto(`${BASE}/markets/NVDA`);
-    check("ticket shows the simulated-trade line above the buttons", await p.getByText("Simulated trade. Prices are generated and are not real market prices.").isVisible());
+    const lineBox = await p.getByText("Simulated trade. Prices are generated and are not real market prices.").boundingBox();
+    const buyBox = await p.getByRole("button", { name: /^Buy \d+ NVDA$/ }).boundingBox();
+    check("ticket shows the simulated-trade line above the buy button", !!lineBox && !!buyBox && lineBox.y + lineBox.height <= buyBox.y + 1, JSON.stringify({ line: lineBox?.y, buy: buyBox?.y }));
     await p.goto(`${BASE}/dashboard`);
     check("dashboard return is labelled as simulated results", await p.getByTestId("sim-results-note").isVisible());
     await c.close();
@@ -709,12 +921,13 @@ async function consent(page) {
     const c = await browser.newContext({ viewport: { width: 1440, height: 1000 }, storageState: storageNow });
     const p = await c.newPage();
     watch(p, "sources");
-    for (const [slug, frag] of [["index-vs-picking", "spglobal.com/spdji/en/research-insights/spiva"], ["overtrading", "doi.org/10.1111/0022-1082.00226"], ["loss-aversion", "doi.org/10.2307/1914185"]]) {
+    for (const [slug, frag] of [["index-vs-picking", "spglobal.com/spdji/en/research-insights/spiva"], ["overtrading", "doi.org/10.1111/0022-1082.00226"], ["loss-aversion", "doi.org/10.2307/1914185"], ["loss-aversion", "doi.org/10.1007/BF00122574"]]) {
       await p.goto(`${BASE}/learn/${slug}`);
       await p.getByTestId("lesson-sources").waitFor({ timeout: 10000 }).catch(() => {});
       const a = p.getByTestId("lesson-sources").getByRole("link");
-      const href = (await a.count()) === 1 ? await a.getAttribute("href") : "";
-      check(`/learn/${slug} ends with a Sources line linking ${frag}`, href.includes(frag) && (await a.getAttribute("target")) === "_blank" && (await p.getByTestId("lesson-sources").innerText()).startsWith("Sources:"), href);
+      const hrefs = await a.evaluateAll((as) => as.map((x) => [x.getAttribute("href"), x.getAttribute("target")]));
+      const href = hrefs.map((h) => h[0]).find((h) => h.includes(frag)) ?? "";
+      check(`/learn/${slug} ends with a Sources line linking ${frag}`, href.includes(frag) && hrefs.every((h) => h[1] === "_blank") && (await p.getByTestId("lesson-sources").innerText()).startsWith("Sources:"), href);
     }
     await p.goto(`${BASE}/learn/stop-losses`);
     check("lessons without statistics have no Sources line", (await p.getByTestId("lesson-sources").count()) === 0);
@@ -765,6 +978,11 @@ async function consent(page) {
     await p.getByRole("tab", { name: "Leaderboard" }).click();
     const rows = p.locator("ol > li", { has: p.locator("[data-demo]") });
     check("every demo leaderboard row has a Demo label and your row has none", (await rows.count()) === 6 && (await p.locator("ol > li").filter({ hasText: "Alex" }).locator("[data-demo]").count()) === 0);
+    check("every leaderboard row except yours carries a Demo label (no unlabelled extras)", await p.locator("ol > li").evaluateAll((lis) => lis.length > 1 && lis.filter((li) => !li.textContent.includes("Alex")).every((li) => li.querySelector("[data-demo]"))));
+    await p.getByRole("tab", { name: "Feed" }).click();
+    const sideRows = p.locator('section[aria-labelledby="ml-h"] li');
+    check("sidebar process leaders: every row is a labelled demo member except yours", (await sideRows.count()) >= 3 && (await sideRows.evaluateAll((lis) => lis.filter((li) => !li.textContent.includes("Alex")).every((li) => li.querySelector("[data-demo]")))));
+    await p.getByRole("tab", { name: "Leaderboard" }).click();
     check("leaderboard states results are simulated", await p.getByTestId("sim-results-note").isVisible());
     await p.getByRole("tab", { name: "Challenges" }).click();
     const ch = await p.locator("main").innerText();

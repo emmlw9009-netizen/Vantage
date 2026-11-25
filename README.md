@@ -36,3 +36,21 @@ See `CLAUDE.md` for the architecture map and the agent hierarchy (`.claude/agent
 ## Legal pages (read before launch)
 
 The legal pages (`/terms`, `/privacy`, `/disclaimer`, `/community-guidelines`, `/copyright`, `/accessibility`) are drafted from `docs/legal/research-report.md`. They are **not legal advice**. Have a lawyer review them before public launch. Fill in the bracketed placeholders in `src/lib/legal.ts` (entity name, address, contact email, DMCA agent, governing law, hosting provider, refund policy, arbitration provider, log retention). Register the DMCA agent with the U.S. Copyright Office. Bump `termsVersion` when the Terms or Privacy policy change materially, so users are asked to agree again.
+
+## Before launch
+
+Every remaining placeholder, all in `src/lib/legal.ts` (the legal pages show them with a "to be completed" mark, and Settings shows a neutral line until the contact email is set):
+
+| Field | Placeholder | Used in |
+|---|---|---|
+| `entityName` | `[Company legal name]` | Terms, Privacy |
+| `entityAddress` | `[Postal address]` | Terms, Privacy |
+| `contactEmail` | `[legal@yourdomain.com]` | Terms, Privacy, Disclaimer, Guidelines, Copyright, Accessibility, Settings |
+| `dmcaAgent` | `[Designated agent name and address]` | Copyright |
+| `governingLaw` | `[State], United States` | Terms |
+| `hostingProvider` | `[hosting provider]` | Privacy |
+| `refundPolicy` | `[refund policy]` | Terms |
+| `arbitrationProvider` | `[arbitration provider, for example AAA or JAMS]` | Terms |
+| `logRetention` | `[log retention period]` | Privacy |
+
+Also: have counsel review the legal pages, register the DMCA agent, set rate limits and a spend cap on the AI key, and decide the owner and counsel items listed in `.superpowers/sdd/2026-11-24-preflight-overhaul/qa-r2-legal.md`.

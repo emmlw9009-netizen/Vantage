@@ -175,7 +175,7 @@ export function PriceChart({ data, height = 280, baseline, baselineLabel, format
               <g>
                 <line x1={PAD.left} x2={PAD.left + geo.w} y1={geo.y(baseline)} y2={geo.y(baseline)} stroke="var(--rule-strong)" strokeWidth={1} />
                 {baselineLabel && (
-                  <text x={PAD.left + 2} y={geo.y(baseline) - 6} fontSize={12} fill="var(--ink-2)" style={{ fontStretch: "87.5%" }}>
+                  <text x={PAD.left + geo.w - 2} y={geo.y(baseline) - 6} textAnchor="end" fontSize={12} fill="var(--ink-2)" stroke="var(--paper)" strokeWidth={4} strokeLinejoin="round" style={{ fontStretch: "87.5%", paintOrder: "stroke" }}>
                     {baselineLabel}
                   </text>
                 )}

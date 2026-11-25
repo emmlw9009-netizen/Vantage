@@ -1,4 +1,5 @@
 import { LEGAL } from "@/lib/legal";
+import { PlaceholderMarks } from "./placeholder-marks";
 
 export function LegalDoc({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -8,6 +9,7 @@ export function LegalDoc({ title, children }: { title: string; children: React.R
         Last updated {LEGAL.effectiveDate}. Version {LEGAL.termsVersion}.
       </p>
       {children}
+      <PlaceholderMarks />
     </article>
   );
 }

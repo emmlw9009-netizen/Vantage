@@ -17,9 +17,11 @@ import { MarkGlyph, ScoreLoop, Tri, tierFor } from "./marks";
  */
 export function Delta({ value, ratio, className, size = "sm" }: { value?: number; ratio?: number; className?: string; size?: "xs" | "sm" | "md" }) {
   const v = ratio ?? value ?? 0;
-  const flat = Math.abs(v) < 1e-9;
+  const isUsd = value != null && ratio == null;
+  // Zero is zero as displayed: a rounded 0.00 is neutral ink, no arrow, no sign.
+  const flat = isUsd ? Math.abs(v) < 0.005 : Math.abs(v) < 0.00005;
   const up = v > 0;
-  const text = value != null && ratio == null ? signedUsd(value).replace("-", "−") : pct(v).replace("-", "−");
+  const text = flat ? (isUsd ? signedUsd(0).replace("-", "").replace("+", "") : pct(0).replace("-", "").replace("+", "")) : isUsd ? signedUsd(value!).replace("-", "−") : pct(v).replace("-", "−");
   return (
     <span className={cn("tnum inline-flex items-center gap-1 whitespace-nowrap font-medium", flat ? "text-muted" : up ? "text-gain" : "text-loss", size === "xs" ? "text-xs" : size === "md" ? "text-base" : "text-sm", className)}>
       {!flat && <Tri up={up} />}
@@ -82,7 +84,7 @@ export function Toaster() {
   const reduce = useReducedMotion();
   const shown = toasts.slice(-2);
   return (
-    <div data-toaster className="pointer-events-none fixed left-4 right-4 top-[64px] z-50 flex flex-col gap-2 sm:right-auto sm:w-[360px] lg:left-8 lg:top-[68px]">
+    <div data-toaster className="pointer-events-none fixed left-4 right-4 top-[64px] z-50 flex flex-col gap-2 sm:right-auto sm:w-[360px] lg:left-8 lg:top-auto lg:bottom-[calc(var(--statusbar-h)+16px)]">
       <AnimatePresence initial={false}>
         {shown.map((t) => (
           <m.div

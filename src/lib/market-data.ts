@@ -25,10 +25,10 @@ export interface Ticker {
 
 export const TICKERS: Ticker[] = [
   { symbol: "SPY", name: "S&P 500 ETF", sector: "Index ETF", basePrice: 682.4, vol: 0.15, beta: 1, blurb: "Tracks the 500 largest US companies. The benchmark most investors measure themselves against.", pe: 23, dividendYield: 1.2 },
-  { symbol: "QQQ", name: "Nasdaq-100 ETF", sector: "Index ETF", basePrice: 611.9, vol: 0.2, beta: 1.15, blurb: "The 100 largest non-financial Nasdaq companies — tech-heavy and more volatile than SPY.", pe: 31, dividendYield: 0.6 },
+  { symbol: "QQQ", name: "Nasdaq-100 ETF", sector: "Index ETF", basePrice: 611.9, vol: 0.2, beta: 1.15, blurb: "The 100 largest non-financial Nasdaq companies, tech-heavy and more volatile than SPY.", pe: 31, dividendYield: 0.6 },
   { symbol: "AAPL", name: "Apple", sector: "Technology", basePrice: 248.3, vol: 0.26, beta: 1.1, blurb: "iPhone, Mac and a fast-growing services business. Huge buybacks and a loyal customer base.", pe: 32, marketCapB: 3700, dividendYield: 0.4 },
   { symbol: "MSFT", name: "Microsoft", sector: "Technology", basePrice: 512.7, vol: 0.24, beta: 1.0, blurb: "Cloud (Azure), Office and enterprise software. A major AI infrastructure player.", pe: 35, marketCapB: 3800, dividendYield: 0.7 },
-  { symbol: "NVDA", name: "NVIDIA", sector: "Technology", basePrice: 186.5, vol: 0.48, beta: 1.7, blurb: "Designs the GPUs that power most AI training. Extremely high growth — and high volatility.", pe: 48, marketCapB: 4500 },
+  { symbol: "NVDA", name: "NVIDIA", sector: "Technology", basePrice: 186.5, vol: 0.48, beta: 1.7, blurb: "Designs the GPUs that power most AI training. Extremely high growth, and high volatility.", pe: 48, marketCapB: 4500 },
   { symbol: "AMD", name: "AMD", sector: "Technology", basePrice: 214.2, vol: 0.5, beta: 1.8, blurb: "CPUs and GPUs for PCs, servers and AI. Competes with Intel and NVIDIA.", pe: 60, marketCapB: 350 },
   { symbol: "GOOGL", name: "Alphabet", sector: "Communication", basePrice: 278.1, vol: 0.28, beta: 1.05, blurb: "Google Search, YouTube and Google Cloud. Advertising is still the core profit engine.", pe: 25, marketCapB: 3350, dividendYield: 0.3 },
   { symbol: "META", name: "Meta Platforms", sector: "Communication", basePrice: 704.6, vol: 0.36, beta: 1.25, blurb: "Facebook, Instagram, WhatsApp. Ad-driven, spending heavily on AI and devices.", pe: 27, marketCapB: 1780, dividendYield: 0.3 },

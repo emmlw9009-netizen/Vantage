@@ -14,7 +14,7 @@ export default function Privacy() {
           Today there are no accounts. Your simulated portfolio, trades, progress, profile name and settings are saved in your own browser (localStorage) and stay on your device. We do not run analytics or advertising trackers, and we do not sell or share your personal information.
         </p>
         <p>
-          The one thing that can leave your device is what you send to the AI coach, and only when the AI coach is switched on and you have acknowledged the in-app notice: your display name, simulated portfolio, trades and chat messages go to Anthropic, our AI provider. Otherwise none of it is sent anywhere. You can export or delete everything in Settings.
+          The one thing that can leave your device is what you send to the AI coach, and only when the AI coach is switched on and you have acknowledged the in-app notice: {LEGAL.aiData} go to Anthropic, our AI provider. Otherwise none of it is sent anywhere. You can export or delete everything in Settings.
         </p>
       </Summary>
 
@@ -31,7 +31,7 @@ export default function Privacy() {
         </p>
         <h3>Sent to our AI provider, when the AI coach is on</h3>
         <p>
-          If the AI coach is switched on, then when you chat with Nova, request a trade review, or post in the community and Nova replies, the app sends the relevant request to our server, which passes it to Anthropic. This includes your display name, a snapshot of your simulated portfolio and trades, your progress, and the text you wrote. We show you a notice before this happens for the first time. If the AI coach is not switched on, or if the app cannot confirm that it is, Nova runs as a rules engine in your browser and the app sends no portfolio, trade, name or chat data anywhere, including to our own server. (The app does ask our server whether the AI coach is switched on. That request contains none of your data.) Our server also refuses to forward any request to the AI provider unless the app confirms you have acknowledged the notice.
+          If the AI coach is switched on, then when you chat with Nova, request a trade review, or post in the community and Nova replies, the app sends the relevant request to our server, which passes it to Anthropic. This includes {LEGAL.aiData}. Chat you wrote before you acknowledged the notice stays on your device and is never sent. We show you a notice before this happens for the first time. If the AI coach is not switched on, or if the app cannot confirm that it is, Nova runs as a rules engine in your browser and the app sends no portfolio, trade, name or chat data anywhere, including to our own server. (The app does ask our server whether the AI coach is switched on. That request contains none of your data.) Our server also refuses to forward any request to the AI provider unless the app confirms you have acknowledged the notice.
         </p>
         <h3>Server and hosting logs</h3>
         <p>
@@ -51,7 +51,7 @@ export default function Privacy() {
             </thead>
             <tbody>
               <tr><td>Provide the simulator, lessons, progress and settings you asked for</td><td>Browser-stored data</td><td>Performance of a contract. Storing it on your device is strictly necessary for the service you requested.</td></tr>
-              <tr><td>Generate AI coaching replies and trade reviews</td><td>Name, portfolio, trades, chat text</td><td>Contract, and your consent shown by the notice and your use of the AI coach</td></tr>
+              <tr><td>Generate AI coaching replies and trade reviews</td><td>{LEGAL.aiDataShort}</td><td>Contract, and your consent shown by the notice and your use of the AI coach</td></tr>
               <tr><td>Keep the Service secure, prevent abuse, fix errors</td><td>Server and hosting logs</td><td>Legitimate interests</td></tr>
               <tr><td>Record that you agreed to our terms</td><td>Terms version and date</td><td>Legal obligation and legitimate interests (proof of consent)</td></tr>
             </tbody>
@@ -67,7 +67,7 @@ export default function Privacy() {
               <tr><th>Recipient</th><th>Role</th><th>Data</th><th>Status</th></tr>
             </thead>
             <tbody>
-              <tr><td>Anthropic</td><td>AI model provider (service provider and processor) for Nova</td><td>Display name, simulated portfolio, trades, progress, chat text</td><td>Used only when the AI coach is switched on</td></tr>
+              <tr><td>Anthropic</td><td>AI model provider (service provider and processor) for Nova</td><td>{LEGAL.aiDataShort}</td><td>Used only when the AI coach is switched on</td></tr>
               <tr><td>{LEGAL.hostingProvider}</td><td>Hosting provider (processor)</td><td>Server logs including IP address and user agent</td><td>Applies to anyone loading the site</td></tr>
               <tr><td>Supabase</td><td>Accounts and database (processor)</td><td>Account, profile and community data</td><td>Planned. Applies only when accounts are enabled</td></tr>
               <tr><td>Resend</td><td>Email delivery (processor)</td><td>Email address and message content</td><td>Planned. Applies only when email is enabled</td></tr>
@@ -125,7 +125,7 @@ export default function Privacy() {
 
       <S id="children" title="11. Children">
         <p>
-          {BRAND.name} is for people aged {LEGAL.minimumAge} and older. We do not knowingly collect personal data from anyone under {LEGAL.minimumAge}, and in no case from children under 13. If you believe a child has used the Service, email {LEGAL.contactEmail}. If we learn that we have data from someone under {LEGAL.minimumAge}, we will delete it and block the use.
+          {BRAND.name} is for people aged {LEGAL.minimumAge} and older. We do not knowingly collect personal data from anyone under {LEGAL.minimumAge}, and in no case from children under 13. If you believe a child has used the Service, email {LEGAL.contactEmail}. If we learn that we have data from someone under {LEGAL.minimumAge}, we will ask you to delete it in Settings, because it is stored only on your device, and we will block the use.
         </p>
       </S>
 

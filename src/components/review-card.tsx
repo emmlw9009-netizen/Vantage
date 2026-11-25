@@ -44,7 +44,7 @@ export function ReviewCard({ trade, compact = false, headingLevel = "h3" }: { tr
   const share = () => {
     addPost({
       kind: trade.realizedPnl && trade.realizedPnl > 0 ? "win" : trade.realizedPnl && trade.realizedPnl < 0 ? "lesson" : "idea",
-      body: `${trade.side === "buy" ? "Bought" : "Sold"} ${trade.qty} ${trade.symbol} at ${usd(trade.price)}. Process score ${trade.score} (${scoreLabel(trade.score)}).${trade.thesis ? `\n\nThesis: ${trade.thesis}` : ""}${r ? `\n\nCoach: ${r.headline}` : ""}`,
+      body: `${trade.side === "buy" ? "Bought" : "Sold"} ${trade.qty} ${trade.symbol} at ${usd(trade.price)}. Process score ${trade.score} (${scoreLabel(trade.score)}). Simulated trade, practice money.${trade.thesis ? `\n\nThesis: ${trade.thesis}` : ""}${r ? `\n\nCoach: ${r.headline}` : ""}`,
       symbol: trade.symbol,
       tradeId: trade.id,
     });

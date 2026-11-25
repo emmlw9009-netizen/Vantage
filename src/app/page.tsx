@@ -72,7 +72,7 @@ export default function Landing() {
               Trade a simulated market with $100,000 in practice money. Nova, an AI coach, checks every trade for the five habits that keep beginners in the game.
             </p>
             <div data-hero-fade className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
-              <Link href="/dashboard" className="btn btn-primary btn-lg">
+              <Link href="/dashboard" className="btn btn-primary btn-lg w-full sm:w-auto">
                 Start with $100,000 in practice money
               </Link>
               <Link href="/learn" className="btn btn-quiet">
@@ -138,7 +138,7 @@ export default function Landing() {
             <h2 id="checks-h" className="t-h2 lg:text-[36px] lg:leading-[40px]">
               Every trade gets the same five checks
             </h2>
-            <p className="mt-3 max-w-[60ch] t-lead">They&apos;re the habits that separate people who improve from people who quit. Nova ticks each one in blue pencil, or tells you exactly what&apos;s missing.</p>
+            <p className="mt-3 max-w-[60ch] t-lead">They&apos;re the habits that separate people who improve from people who quit. Nova ticks each one in blue pencil, or tells you whattells you exactly what&apos;s missingapos;s missing.</p>
             <ul className="mt-10 grid grid-cols-1 border-t border-rule-strong sm:grid-cols-2 lg:grid-cols-5">
               {CHECKS.map((c) => (
                 <li key={c.name} className="flex gap-4 border-b border-rule py-5 pr-6 lg:flex-col lg:gap-3 lg:border-b-0 lg:border-r lg:pl-5 lg:first:pl-0 lg:last:border-r-0">
@@ -198,7 +198,7 @@ export default function Landing() {
                 <p className="mt-3 max-w-[60ch] t-lead">Short lessons with quizzes and something to try in the simulator. When Nova flags a mistake, it links the lesson that fixes it.</p>
               </div>
               <Link href="/learn" className="btn btn-secondary">
-                See the course
+                Open the course
               </Link>
             </div>
             <div className="mt-10 grid grid-cols-1 gap-10 md:grid-cols-2">

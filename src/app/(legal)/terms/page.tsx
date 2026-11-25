@@ -29,7 +29,7 @@ export default function Terms() {
 
       <S id="eligibility" title="2. Eligibility">
         <ul>
-          <li>You must be at least {LEGAL.minimumAge} years old. By agreeing, you confirm that you are. If we learn that someone under {LEGAL.minimumAge} is using the Service, we may remove their access and delete their data.</li>
+          <li>You must be at least {LEGAL.minimumAge} years old. By agreeing, you confirm that you are. If we learn that someone under {LEGAL.minimumAge} is using the Service, we may remove their access, and we will ask you to delete your data in Settings because it is stored only on your device.</li>
           <li>You confirm that you have the legal capacity and authority to enter into this agreement.</li>
           <li>Do not use the Service where it is prohibited by law, or if you are barred from receiving it under the laws that apply to you.</li>
         </ul>
@@ -42,7 +42,7 @@ export default function Terms() {
         <ul>
           <li>No real money is used. No trade you place is a real order. We are not a broker, dealer, exchange, investment adviser or bank, and we do not hold, move or invest anyone’s money.</li>
           <li>Prices, charts, news headlines, community members, posts, likes and leaderboard entries are simulated or fictional unless a page says otherwise. Simulated prices are generated and are not real market prices.</li>
-          <li>Company names and ticker symbols are used only so that the simulation feels familiar.</li>
+          <li>Company names and ticker symbols are used only to identify the companies and indexes the simulation refers to.</li>
         </ul>
         <p>See the <Link href="/disclaimer">Investment and simulation disclaimer</Link> for the full statement.</p>
       </S>
@@ -68,7 +68,7 @@ export default function Terms() {
       <S id="ai" title="7. AI features">
         <ul>
           <li>Nova’s replies, trade reviews and other AI-generated content may be inaccurate, incomplete, out of date or unsuitable for you. We do not verify them. Do not rely on them for real financial decisions.</li>
-          <li>Only when the AI coach is switched on, and only after you have seen and acknowledged an in-app notice, your simulated portfolio, trades, display name and chat messages are sent to our AI provider (Anthropic) to generate replies. The <Link href="/privacy">Privacy policy</Link> explains this. Otherwise Nova runs as a local rules engine in your browser (labelled “Nova, rules engine”), and no portfolio, trade, name or chat data is sent anywhere, including to our own server.</li>
+          <li>Only when the AI coach is switched on, and only after you have seen and acknowledged an in-app notice, {LEGAL.aiData} are sent to our AI provider (Anthropic) to generate replies. The <Link href="/privacy">Privacy policy</Link> explains this. Otherwise Nova runs as a local rules engine in your browser (labelled “Nova, rules engine”), and no portfolio, trade, name or chat data is sent anywhere, including to our own server.</li>
           <li>Do not try to misuse the AI: for example, by trying to extract its instructions, generate unlawful, harassing or deceptive content, or use it to bypass the rules in section 9.</li>
         </ul>
       </S>
@@ -98,7 +98,7 @@ export default function Terms() {
           <li><strong>Ownership.</strong> You keep ownership of what you post (posts, comments, trade notes, theses).</li>
           <li><strong>License to us.</strong> You give us a worldwide, non-exclusive, royalty-free license to host, store, display, reproduce and distribute your content as needed to run, secure and improve the Service, including showing it to other users where you post it publicly. This license ends when you delete the content or your data, except for copies in backups for a short time and content others have already shared or quoted.</li>
           <li><strong>Your promises.</strong> You confirm you have the rights to post your content, that it does not infringe anyone’s rights or break the law, and that it does not break these terms.</li>
-          <li><strong>Moderation.</strong> We may review, hide, edit or remove content, and restrict accounts, at our discretion, including when we receive a report. We are not obliged to monitor content.</li>
+          <li><strong>Moderation.</strong> We may review, hide, edit or remove content, and restrict accounts, at our discretion, including when someone tells us about it. Reports made in the app are not yet sent to us. We are not obliged to monitor content.</li>
         </ul>
       </S>
 

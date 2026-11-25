@@ -19,6 +19,9 @@ export const LEGAL = {
   /** Bump when Terms or Privacy change materially: every user is asked to agree again. */
   termsVersion: "2026-11-24",
   minimumAge: 18,
+  /** The one canonical list of what is sent to the AI provider. Every notice and policy renders this. */
+  aiData: "your display name, experience level and goal, your simulated portfolio, orders and trades (including trade notes), lesson progress, and the text of the chat messages and community posts you send to Nova",
+  aiDataShort: "Name, experience and goal, portfolio, orders, trades and notes, progress, chat and post text",
 } as const;
 
 export const LEGAL_PAGES = [

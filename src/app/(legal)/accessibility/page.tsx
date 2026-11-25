@@ -24,7 +24,7 @@ export default function Accessibility() {
       <S id="measures" title="What we do">
         <ul>
           <li>We design for color contrast of at least 4.5:1 for text, in both light and dark themes.</li>
-          <li>A visible focus ring on interactive elements, and a target size of at least 40 pixels for touch controls.</li>
+          <li>A visible focus ring on interactive elements, and a target size of at least 40 pixels for touch controls, which we are still bringing to every control.</li>
           <li>Labels on icon-only buttons, and gains and losses shown with an arrow and sign as well as color.</li>
           <li>A layout that works from phone width up, and respect for your reduced-motion setting.</li>
           <li>Keyboard access to navigation and forms. Dialogs trap focus while open and return it when closed.</li>

@@ -56,7 +56,7 @@ export default function Guidelines() {
 
       <S id="moderation" title="What we do about it">
         <p>
-          We may hide or remove content, warn you, limit features, or end access, at our discretion, as described in the <Link href="/terms">Terms</Link>. We aim to review reports promptly. We do not promise to catch everything. For copyright complaints, see the <Link href="/copyright">Copyright and DMCA policy</Link>.
+          We may hide or remove content, warn you, limit features, or end access, at our discretion, as described in the <Link href="/terms">Terms</Link>. Reporting hides the item for you. Reports made in the app are not yet sent to us, so email {LEGAL.contactEmail} to reach a person. We do not promise to catch everything. For copyright complaints, see the <Link href="/copyright">Copyright and DMCA policy</Link>.
         </p>
       </S>
     </LegalDoc>

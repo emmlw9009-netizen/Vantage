@@ -78,6 +78,13 @@ export default function Dashboard() {
   const nextLesson = ALL_LESSONS.find((l) => !completed[l.slug]);
   const spyDay = prices.SPY && prevClose.SPY ? prices.SPY / prevClose.SPY - 1 : 0;
   const chartData = equityHistory.length >= 2 ? [...equityHistory.map((e) => ({ t: e.t, c: e.v })), { t: Date.now(), c: equity }] : [];
+  const active = trades.length > 0 || pos.length > 0 || openOrders.length > 0;
+  const startSteps = [
+    { done: !!missions["first-trade"] || active, label: "Pick a stock", detail: "Any company you know. Open SPY to start with the whole market." },
+    { done: !!missions["use-stop"], label: "Set a stop-loss with the quick buttons", detail: "The −3%, −5% and −8% buttons fill the price for you." },
+    { done: !!missions["write-thesis"], label: "Write one sentence about why", detail: "Say what you expect and what would prove you wrong." },
+  ];
+  const showStart = !missions["use-stop"];
   const short = chartData.length >= 2 && chartData[chartData.length - 1].t - chartData[0].t < 5 * 60_000;
 
   return (
@@ -92,11 +99,15 @@ export default function Dashboard() {
               <div className="min-w-0">
                 <div className="t-small text-ink-2">Account value</div>
                 <AnimatedNumber value={equity} format={(n) => usd(n)} split className="t-readout-xl mt-1 block" />
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 t-small">
-                  <Delta value={equity - STARTING_CASH} />
-                  <Delta ratio={(equity - STARTING_CASH) / STARTING_CASH} />
-                  <span className="text-ink-2">since you started with $100,000</span>
-                </div>
+                {active ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 t-small">
+                    <Delta value={equity - STARTING_CASH} />
+                    <Delta ratio={(equity - STARTING_CASH) / STARTING_CASH} />
+                    <span className="text-ink-2">since you started with $100,000</span>
+                  </div>
+                ) : (
+                  <p className="mt-2 t-small text-ink-2">Practice money to start with. Nothing has happened yet.</p>
+                )}
               </div>
               <div className="text-right">
                 <div className="t-micro text-ink-2">S&amp;P 500 (SPY) today</div>
@@ -106,6 +117,30 @@ export default function Dashboard() {
             <p className="mt-2 t-micro text-ink-2" data-testid="sim-results-note">
               Simulated results. Not real trades, and they don&apos;t include fees or slippage.
             </p>
+            {showStart && (
+              <section aria-labelledby="start-h" className="mt-6 border-t border-rule-strong pt-4" data-testid="start-here">
+                <h2 id="start-h" className="t-h2">Start here</h2>
+                <ol className="mt-3 border-t border-rule">
+                  {startSteps.map((st, i) => (
+                    <li key={st.label} className="grid grid-cols-[28px_minmax(0,1fr)] items-start gap-x-3 border-b border-rule py-3" data-done={st.done}>
+                      <CheckCell state={st.done ? "done" : "todo"} size={24} draw />
+                      <div className="min-w-0">
+                        <p className={st.done ? "t-small font-medium text-ink-2" : "t-small font-medium"}>
+                          <span className="sr-only">{st.done ? "Done: " : `Step ${i + 1}: `}</span>
+                          {st.label}
+                        </p>
+                        <p className="t-micro text-ink-2">{st.detail}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+                <Link href="/markets/SPY" className="btn btn-primary mt-4 w-full sm:w-auto">
+                  Open SPY
+                </Link>
+              </section>
+            )}
+            {active && (
+              <>
             <div className="mt-6">
               <PriceChart
                 data={chartData}
@@ -131,6 +166,8 @@ export default function Dashboard() {
                 </div>
               ))}
             </dl>
+              </>
+            )}
           </section>
 
           {/* Nova's notes on phones come right after the account, before the ledger */}
@@ -302,8 +339,8 @@ export default function Dashboard() {
                   <li key={mi.id} className="flex items-center gap-2 border-b border-rule py-1.5 t-small">
                     <CheckCell state={missions[mi.id] ? "done" : "todo"} size={22} />
                     <span className="sr-only">{missions[mi.id] ? "Done:" : "To do:"}</span>
-                    <Link href={mi.href} className={missions[mi.id] ? "min-w-0 flex-1 truncate text-ink-2 hover:underline" : "min-w-0 flex-1 truncate hover:underline"}>
-                      {mi.title}
+                    <Link href={mi.href} className={missions[mi.id] ? "flex min-h-10 min-w-0 flex-1 items-center text-ink-2 hover:underline" : "flex min-h-10 min-w-0 flex-1 items-center hover:underline"}>
+                      <span className="truncate">{mi.title}</span>
                     </Link>
                     <span className="tnum t-micro text-muted">{mi.xp} XP</span>
                   </li>

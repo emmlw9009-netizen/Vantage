@@ -53,11 +53,11 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="max-w-[760px]">
+    <div className="max-w-[880px]">
       <h1 className="t-title">Settings</h1>
 
-      <section className="mt-12 divide-y divide-rule border-t border-rule-strong" aria-labelledby="plan-h">
-        <div className="flex flex-wrap items-center justify-between gap-3 py-5">
+      <section className="mt-10 divide-y divide-rule border-t border-rule-strong" aria-labelledby="plan-h">
+        <div className="flex flex-wrap items-center justify-between gap-3 py-4">
           <div>
             <h2 id="plan-h" className="t-h2">Membership</h2>
             <p className="mt-0.5 text-sm text-ink-2" data-testid="plan-row">Plan: Free</p>
@@ -65,17 +65,17 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="mt-12 divide-y divide-rule border-t border-rule-strong" aria-labelledby="data-h">
-        <div className="py-5">
+      <section className="mt-10 divide-y divide-rule border-t border-rule-strong" aria-labelledby="data-h">
+        <div className="py-4">
           <h2 id="data-h" className="t-h2">Your data</h2>
           <p className="mt-1 text-sm text-ink-2">
             {BRAND.name} keeps your practice account, trades, progress and chat in this browser only. There is no account on our servers to export from or delete.
           </p>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 py-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 py-4">
           <div className="min-w-0 max-w-md">
             <h3 className="font-semibold">Export my data</h3>
-            <p className="text-sm text-ink-2">Downloads a JSON file with everything saved in this browser: your account, orders, trades, profile, lessons and chat.</p>
+            <p className="text-sm text-ink-2">Downloads a JSON file with everything saved in this browser except your theme setting: your account, orders, trades, profile, lessons and chat.</p>
           </div>
           <button
             onClick={() => {
@@ -87,7 +87,7 @@ export default function SettingsPage() {
             Export my data
           </button>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 py-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 py-4">
           <div className="min-w-0 max-w-md">
             <h3 className="font-semibold">Delete all my data</h3>
             <p className="text-sm text-ink-2">Permanently erases everything saved in this browser, including your profile and your agreement record, and takes you back to the start. This cannot be undone. When the app reloads it creates a fresh set of simulated prices, which holds no personal data.</p>
@@ -98,8 +98,8 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="mt-12 divide-y divide-rule border-t border-rule-strong" aria-labelledby="practice-h">
-        <div className="flex flex-wrap items-center justify-between gap-3 py-5">
+      <section className="mt-10 divide-y divide-rule border-t border-rule-strong" aria-labelledby="practice-h">
+        <div className="flex flex-wrap items-center justify-between gap-3 py-4">
           <div className="min-w-0 max-w-md">
             <h2 id="practice-h" className="t-h2">Practice account</h2>
             <p className="mt-1 text-sm text-ink-2">Puts your cash back to $100,000 and clears positions, open orders, trades and the account chart. Your profile, lessons, XP and chat stay.</p>
@@ -110,7 +110,7 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="mt-12 border-t border-rule-strong pt-5" aria-labelledby="theme-h">
+      <section className="mt-10 border-t border-rule-strong pt-5" aria-labelledby="theme-h">
         <h2 id="theme-h" className="t-h2">Appearance</h2>
         <div role="radiogroup" aria-label="Theme" className="mt-3 flex flex-wrap gap-2">
           {THEMES.map(([v, label], i) => (
@@ -137,7 +137,7 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="mt-12 border-t border-rule-strong pt-5" aria-labelledby="legal-h">
+      <section className="mt-10 border-t border-rule-strong pt-5" aria-labelledby="legal-h">
         <h2 id="legal-h" className="t-h2">Legal</h2>
         <p className="mt-1 text-sm text-ink-2" data-testid="consent-record">
           {consent ? `You agreed to version ${consent.version} of the terms on ${new Date(consent.acceptedAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}.` : "No agreement recorded."}
@@ -147,7 +147,7 @@ export default function SettingsPage() {
           <li><Link className="link inline-flex min-h-10 items-center" href="/privacy">Privacy policy</Link></li>
           <li><Link className="link inline-flex min-h-10 items-center" href="/disclaimer">Disclaimer</Link></li>
         </ul>
-        <p className="mt-1 text-sm text-ink-2">Questions about your data: {LEGAL.contactEmail}</p>
+        <p className="mt-1 text-sm text-ink-2">{/^\[.*\]$/.test(LEGAL.contactEmail) ? "Contact details will appear here." : `Questions about your data: ${LEGAL.contactEmail}`}</p>
       </section>
 
       {dialog === "delete" && (

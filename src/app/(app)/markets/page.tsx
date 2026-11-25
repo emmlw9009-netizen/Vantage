@@ -107,7 +107,7 @@ export default function Markets() {
             </ol>
           </section>
           <section aria-labelledby="headlines-h">
-            <SectionTitle id="headlines-h" title="Live headlines" />
+            <SectionTitle id="headlines-h" title="Simulated headlines" />
             <NewsFeed limit={8} />
           </section>
         </aside>

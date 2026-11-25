@@ -195,7 +195,7 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
   const submitLabel = type === "market" ? `${buy ? "Buy" : "Sell"} ${q || 0} ${symbol}` : `Place ${type} ${side}`;
 
   return (
-    <div className="sheet flex flex-col lg:max-h-[calc(100dvh-120px)]">
+    <div className="sheet flex flex-col lg:max-h-[calc(100dvh-80px-var(--statusbar-h)-16px)]">
       <div className="min-h-0 flex-1 lg:overflow-y-auto">
         {/* header */}
         <div className="space-y-3 px-4 pb-4 pt-4 sm:px-5">
@@ -257,7 +257,7 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
               <span className="t-micro text-muted">Where your reason stops being true</span>
             </label>
             <div className="flex gap-1.5">
-              <input id="stop" inputMode="decimal" autoComplete="off" placeholder="e.g. 5% below" value={stop} onChange={(e) => setStop(e.target.value)} aria-invalid={!!stopP.error} className="field tnum min-w-0 flex-1" maxLength={12} />
+              <input id="stop" inputMode="decimal" autoComplete="off" placeholder="e.g. −5%" value={stop} onChange={(e) => setStop(e.target.value)} aria-invalid={!!stopP.error} className="field tnum min-w-0 flex-1" maxLength={12} />
               {[0.03, 0.05, 0.08].map((p) => (
                 <button key={p} onClick={() => setStop((entry * (1 - p)).toFixed(2))} className={quick}>
                   −{p * 100}%
@@ -294,13 +294,15 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
             </p>
           )}
           {buy && (
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 t-small text-ink-2">Size by risk</span>
-              {[0.005, 0.01, 0.02].map((r) => (
-                <button key={r} onClick={() => sizeByRisk(r)} className={quick}>
-                  {r * 100}% of account
-                </button>
-              ))}
+            <div className="mt-2.5" role="group" aria-label="Size by risk">
+              <p className="t-small text-ink-2">Size by risk, as a share of your account</p>
+              <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+                {[0.005, 0.01, 0.02].map((r) => (
+                  <button key={r} onClick={() => sizeByRisk(r)} aria-label={`${r * 100}% of account`} className={quick}>
+                    {r * 100}%
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </Row>
@@ -313,7 +315,7 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
               {preview?.metrics.rewardRisk != null && <span className="tnum t-micro text-ink-2">Reward to risk {preview.metrics.rewardRisk.toFixed(1)} : 1</span>}
             </label>
             <div className="flex gap-1.5">
-              <input id="target" inputMode="decimal" autoComplete="off" placeholder="e.g. 10% above" value={target} onChange={(e) => setTarget(e.target.value)} aria-invalid={!!targetP.error} className="field tnum min-w-0 flex-1" maxLength={12} />
+              <input id="target" inputMode="decimal" autoComplete="off" placeholder="e.g. +10%" value={target} onChange={(e) => setTarget(e.target.value)} aria-invalid={!!targetP.error} className="field tnum min-w-0 flex-1" maxLength={12} />
               {[0.06, 0.1, 0.16].map((p) => (
                 <button key={p} onClick={() => setTarget((entry * (1 + p)).toFixed(2))} className={quick}>
                   +{p * 100}%
@@ -375,6 +377,7 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
             </span>
           </div>
         )}
+        <p className="mb-2 t-micro text-ink-2">Simulated trade. Prices are generated and are not real market prices. No real money.</p>
         <button
           onClick={submit}
           onDoubleClick={(e) => e.preventDefault()}
@@ -383,7 +386,6 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
         >
           {submitLabel}
         </button>
-        <p className="mt-2 t-micro text-ink-2">Simulated trade. Prices are generated and are not real market prices. No real money.</p>
       </div>
     </div>
   );

@@ -69,7 +69,7 @@ export function analyzeTrade(t: TradeInput, ctx: PortfolioContext): Analysis {
     flags.push({
       id: "tp-hit",
       tone: "good",
-      title: "Target hit — you followed your plan",
+      title: "Target hit, you followed your plan",
       detail: `Your take-profit filled at ${usd(t.price)} for ${usd(t.realizedPnl ?? 0)}. Taking profits at a level you chose ahead of time beats deciding on the spot.`,
       lesson: "risk-reward",
     });
@@ -104,7 +104,7 @@ export function analyzeTrade(t: TradeInput, ctx: PortfolioContext): Analysis {
       flags.push({ id: "size-risk", tone: "good", title: `Sized from your stop: ${pct(positionPct, 0, false)} of your account`, detail: "Your stop caps the loss, so this size is fine. Just remember gaps (e.g. earnings) can jump past a stop.", lesson: "position-sizing" });
     } else if (positionPct > 0.25) {
       score -= 22;
-      flags.push({ id: "size-big", tone: "risk", title: `Concentrated: ${pct(positionPct, 0, false)} of your account`, detail: `One position this large means a single bad headline can do real damage. Most pros keep one position to 5–10% of the account.`, lesson: "position-sizing" });
+      flags.push({ id: "size-big", tone: "risk", title: `Concentrated: ${pct(positionPct, 0, false)} of your account`, detail: `One position this large means a single bad headline can do real damage. A common guideline is to keep one position to roughly 5–10% of the account (general guidance, not a rule).`, lesson: "position-sizing" });
     } else if (positionPct > 0.12) {
       score -= 8;
       flags.push({ id: "size-med", tone: "warn", title: `Sizable position: ${pct(positionPct, 0, false)} of your account`, detail: "That's on the heavy side. Make sure your stop limits the damage if you're wrong.", lesson: "position-sizing" });
@@ -175,7 +175,7 @@ export function analyzeTrade(t: TradeInput, ctx: PortfolioContext): Analysis {
     // ---- sells ----
     const pnl = t.realizedPnl ?? 0;
     if (pnl < 0) {
-      flags.push({ id: "cut-loss", tone: "good", title: `Took a ${usd(Math.abs(pnl))} loss`, detail: "Cutting a loser is hard. That was the right call if your thesis broke — check whether it did.", lesson: "loss-aversion" });
+      flags.push({ id: "cut-loss", tone: "good", title: `Took a ${usd(Math.abs(pnl))} loss`, detail: "Cutting a loser is hard. That was the right call if your thesis broke, check whether it did.", lesson: "loss-aversion" });
       score += 4;
     } else if (pnl > 0) {
       flags.push({ id: "win", tone: "good", title: `Locked in ${usd(pnl)}`, detail: "Profit taken. Was this your plan, or did you get nervous? Compare it with your thesis.", lesson: "risk-reward" });

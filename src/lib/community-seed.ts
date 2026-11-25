@@ -50,7 +50,7 @@ export const SEED_POSTS: (Post & { seedComments: { authorId: string; body: strin
   },
   {
     id: "p4", authorId: "u2", kind: "question", at: Date.now() - 8 * H, likes: 0,
-    body: "Beginner question: why does my stock drop the moment I buy it with a market order? Is the sim rigged? 😅",
+    body: "Beginner question: why does my stock drop the moment I buy it with a market order? Is the sim rigged?",
     seedComments: [{ authorId: "u5", body: "That's the bid/ask spread plus slippage. Lesson 2 in Foundations covers it.", ago: 7.5 * H }],
   },
   {

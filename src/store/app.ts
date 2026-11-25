@@ -76,6 +76,8 @@ export interface ChatMsg {
   role: "user" | "assistant";
   content: string;
   at: number;
+  /** Written while nothing could be sent to the AI provider. Never part of the history sent later. */
+  local?: boolean;
 }
 
 export interface Post {

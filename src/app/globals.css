@@ -7,6 +7,7 @@
    ===================================================================== */
 :root {
   color-scheme: light;
+  --statusbar-h: calc(44px + env(safe-area-inset-bottom, 0px));
   --paper: #edf1ea;
   --sheet: #fafbf8;
   --well: #e3e9e0;
@@ -478,6 +479,19 @@ textarea.field {
     font-size: 18px;
     line-height: 29px;
   }
+}
+/* a legal placeholder that the owner still has to fill in (see PlaceholderMarks) */
+.prose-legal mark.ph {
+  background: var(--well);
+  color: var(--ink);
+  border-bottom: 1px dashed var(--pencil);
+  padding: 0 0.25em;
+  font-style: italic;
+}
+.prose-legal mark.ph::after {
+  content: " (to be completed)";
+  font-size: 0.8em;
+  color: var(--ink-2);
 }
 .prose-legal h1 {
   font-family: var(--font-sans);

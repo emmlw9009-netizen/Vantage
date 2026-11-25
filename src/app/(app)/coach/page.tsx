@@ -10,7 +10,7 @@ import { Markdown } from "@/components/ui";
 import { NovaByline } from "@/components/marks";
 import { usd } from "@/lib/format";
 import Link from "next/link";
-import { aiGate } from "@/lib/ai-notice";
+import { gateFor, hasCurrentConsent, probeCoachMode, type CoachMode } from "@/lib/ai-notice";
 
 const STARTERS = [
   "Review my portfolio. What's my biggest risk right now?",
@@ -35,15 +35,20 @@ function Coach() {
   const updateChat = useApp((s) => s.updateChat);
   const clearChat = useApp((s) => s.clearChat);
   const name = useApp((s) => s.profile.name);
+  const aiNoticeAt = useApp((s) => s.profile.aiNoticeAt);
   const params = useSearchParams();
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<"ai" | "offline" | null>(null);
+  const [mode, setMode] = useState<CoachMode | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    fetch("/api/coach").then((r) => r.json()).then((d) => setMode(d.mode)).catch(() => setMode("offline"));
+    // A failed probe is "unknown", never "offline". Re-probe on focus so the header and footer follow the server.
+    const probe = () => probeCoachMode().then(setMode);
+    probe();
+    window.addEventListener("focus", probe);
+    return () => window.removeEventListener("focus", probe);
   }, []);
 
   useEffect(() => {
@@ -61,16 +66,30 @@ function Coach() {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [chat]);
 
+  // Chat from before the AI notice was acknowledged (or written while nothing could be sent) is never sent to the provider.
+  const noticeMs = Date.parse(aiNoticeAt ?? "");
+  const kept = (m: { at: number; local?: boolean }) => Number.isFinite(noticeMs) && (!!m.local || m.at < noticeMs);
+
   const send = async (text: string) => {
     const q = text.trim();
     if (!q || busy) return;
-    const gate = await aiGate();
+    if (!hasCurrentConsent()) return;
+    // One probe decides the gate, the header and the footer. Only a successful probe of AI mode plus the notice sends anything.
+    const probed = await probeCoachMode();
+    setMode(probed);
+    const gate = gateFor(probed);
     if (gate === "wait") return; // the AI data notice is showing; keep the draft
+    const local = gate !== "send";
     setInput("");
     setBusy(true);
-    pushChat({ role: "user", content: q });
-    const history = useApp.getState().chat.map((m) => ({ role: m.role, content: m.content }));
-    const replyId = pushChat({ role: "assistant", content: "" });
+    pushChat({ role: "user", content: q, local });
+    // Only messages written after the AI notice was acknowledged, and while sending was possible, may go to the provider.
+    const since = Date.parse(useApp.getState().profile.aiNoticeAt ?? "");
+    const history = useApp
+      .getState()
+      .chat.filter((m) => !m.local && Number.isFinite(since) && m.at >= since)
+      .map((m) => ({ role: m.role, content: m.content }));
+    const replyId = pushChat({ role: "assistant", content: "", local });
     const context = buildCoachContext();
     try {
       if (gate === "offline") {
@@ -87,6 +106,7 @@ function Coach() {
       const ct = res.headers.get("content-type") ?? "";
       if (!res.ok || ct.includes("text/html") || res.headers.get("x-coach-mode") === "offline" || ct.includes("application/json")) {
         setMode("offline");
+        useApp.setState((st) => ({ chat: st.chat.map((c) => (c.id === replyId ? { ...c, local: true } : c)) }));
         updateChat(replyId, offlineAnswer(q, context));
       } else if (res.body) {
         setMode("ai");
@@ -118,7 +138,13 @@ function Coach() {
             <span className="tag tag-nova">AI coach</span>
           </div>
           <p className="mt-2 t-small text-ink-2">
-            {mode === "ai" ? "Nova can see your simulated portfolio, trades and lessons." : mode === "offline" ? "Offline playbook. Answers come from built-in rules, and nothing is sent to an AI service." : "Connecting…"}{" "}
+            {mode === "ai"
+              ? "Nova can see your simulated portfolio, trades and lessons."
+              : mode === "offline"
+                ? "Offline playbook. Answers come from built-in rules, and nothing is sent to an AI service while the AI coach is off."
+                : mode === "unknown"
+                  ? "Can't tell yet whether the AI coach is on. Nothing is sent until that is confirmed, and answers come from built-in rules for now."
+                  : "Connecting…"}{" "}
             <Link href="/disclaimer" className="link">
               AI coach limits and disclaimer
             </Link>
@@ -150,12 +176,16 @@ function Coach() {
           {chat.map((m) =>
             m.role === "user" ? (
               <div key={m.id} className="flex justify-end">
-                <div className="well max-w-[85%] px-4 py-2.5 text-[15px] leading-6 break-words">{m.content}</div>
+                <div className="max-w-[85%]">
+                  <div className="well px-4 py-2.5 text-[15px] leading-6 break-words">{m.content}</div>
+                  {kept(m) && <p className="mt-1 text-right t-micro text-ink-2">Kept on this device</p>}
+                </div>
               </div>
             ) : (
               <div key={m.id} className="nova-note">
                 <NovaByline />
                 <div className="mt-1.5">{m.content ? <Markdown text={m.content} /> : <span className="t-small text-ink-2">Nova is writing…</span>}</div>
+                {kept(m) && m.content && <p className="mt-1 t-micro text-ink-2">Kept on this device</p>}
               </div>
             ),
           )}
@@ -192,14 +222,16 @@ function Coach() {
           <p className="mt-2 t-micro text-ink-2">
             {mode === "ai" ? (
               <>
-                Nova is an AI coach. It can be wrong. Not investment advice. Your portfolio, trades, name and messages are sent to our AI provider (
+                Nova is an AI coach. It can be wrong. Not investment advice. Your name, experience and goal, portfolio, orders, trades and notes, progress and messages are sent to our AI provider (
                 <Link href="/privacy#ai" className="link">
                   privacy policy
                 </Link>
                 ).
               </>
             ) : mode === "offline" ? (
-              <>Educational coaching on a simulated market. Not investment advice. What you write here is not sent anywhere.</>
+              <>Educational coaching on a simulated market. Not investment advice. While the AI coach is off, what you write here stays on this device.</>
+            ) : mode === "unknown" ? (
+              <>Educational coaching on a simulated market. Not investment advice. We could not check the AI coach, so nothing you write is sent until the check succeeds.</>
             ) : (
               <>Educational coaching on a simulated market. Not investment advice.</>
             )}

@@ -1,6 +1,6 @@
 "use client";
 
-/** Empty state: the ledger's own column heads, two blank ruled rows, one sentence and one action. */
+/** Empty state: the ledger's own column heads, one sentence on the first row and the action directly under it. */
 export function EmptyLedger({ cols, text, action }: { cols: string[]; text: string; action?: React.ReactNode }) {
   return (
     <div>
@@ -11,9 +11,7 @@ export function EmptyLedger({ cols, text, action }: { cols: string[]; text: stri
           </span>
         ))}
       </div>
-      <div className="h-11 border-b border-rule" aria-hidden />
-      <div className="h-11 border-b border-rule" aria-hidden />
-      <p className="mt-4 t-small text-ink-2">{text}</p>
+      <p className="border-b border-rule py-3 t-small text-ink-2">{text}</p>
       {action && <div className="mt-3">{action}</div>}
     </div>
   );

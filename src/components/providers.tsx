@@ -10,7 +10,7 @@ import { missionDone } from "@/lib/missions";
 import { rulesReview } from "@/lib/offline-coach";
 import { usd } from "@/lib/format";
 import { scoreLabel } from "@/lib/analysis";
-import { aiGate } from "@/lib/ai-notice";
+import { aiGate, hasCurrentConsent } from "@/lib/ai-notice";
 
 const TICK_MS = 2000;
 const inflight = new Set<string>();
@@ -23,10 +23,12 @@ export function useHydrated() {
 
 async function requestReview(tradeId: string) {
   if (inflight.has(tradeId)) return;
-  inflight.add(tradeId);
   const s = useApp.getState();
   const t = s.trades.find((x) => x.id === tradeId);
   if (!t) return;
+  // No review of any kind (not even the local one) while consent is missing or outdated: the terms gate is up.
+  if (!hasCurrentConsent()) return;
+  inflight.add(tradeId);
   const prices = useMarket.getState().prices;
   try {
     // Data goes to the server only when AI mode is confirmed and the notice has been acknowledged.
@@ -63,6 +65,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const init = useMarket((s) => s.init);
   const trades = useApp((s) => s.trades);
   const aiNoticeAt = useApp((s) => s.profile.aiNoticeAt);
+  const consentVersion = useApp((s) => s.profile.consent?.version);
+  const onboarded = useApp((s) => s.profile.onboarded);
   const push = useToast((s) => s.push);
   const seenTrades = useRef<Set<string> | null>(null);
   const [storeReady, setStoreReady] = useState(false);
@@ -134,7 +138,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         }
       }
     }
-  }, [trades, push, aiNoticeAt, storeReady]);
+  }, [trades, push, aiNoticeAt, consentVersion, onboarded, storeReady]);
 
   // missions
   const orders = useApp((s) => s.orders);

@@ -3,7 +3,6 @@
 import { BRAND } from "@/lib/brand";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Heart } from "lucide-react";
 import { useApp, useEquity, ME, STARTING_CASH } from "@/store/app";
 import { CHALLENGES, MEMBERS, MEMBER_MAP, SEED_POSTS } from "@/lib/community-seed";
 import { TICKER_MAP } from "@/lib/market-data";
@@ -13,14 +12,14 @@ import { cn, pct, timeAgo } from "@/lib/format";
 import { aiGate } from "@/lib/ai-notice";
 import { useToast } from "@/store/toast";
 import { Avatar, Delta, Segmented, SectionTitle } from "@/components/ui";
-import { NovaByline, ScoreLoop } from "@/components/marks";
+import { CheckCell, NovaByline, ScoreLoop } from "@/components/marks";
 
 type Tab = "feed" | "leaders" | "challenges";
 const KINDS = [
   { value: "idea", label: "Trade idea" },
   { value: "question", label: "Question" },
   { value: "win", label: "Win" },
-  { value: "lesson", label: "Lesson learned" },
+  { value: "lesson", label: "Lesson" },
 ] as const;
 const KIND_LABEL: Record<string, string> = { idea: "Trade idea", question: "Question", win: "Win", lesson: "Lesson" };
 
@@ -159,10 +158,10 @@ function Feed() {
                   </div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-3 t-micro text-ink-2">
                     <span>@{author?.handle ?? "you"}</span>
-                    <span>{timeAgo(p.at)}</span>
+                    {!p.demo && <span>{timeAgo(p.at)}</span>}
                     <span>{KIND_LABEL[p.kind]}</span>
                     {p.symbol && (
-                      <Link href={`/markets/${p.symbol}`} className="link font-semibold">
+                      <Link href={`/markets/${p.symbol}`} className="link inline-flex min-h-10 items-center font-semibold">
                         {p.symbol}
                       </Link>
                     )}
@@ -171,8 +170,8 @@ function Feed() {
               </header>
               <p className="mt-3 whitespace-pre-line break-words text-[15px] leading-6 [overflow-wrap:anywhere]">{p.body}</p>
               <div className="mt-2 flex items-center gap-1 t-small text-ink-2">
-                <button onClick={() => toggleLike(p.id)} data-like className={cn("inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-md px-2 hover:bg-well", liked[p.id] && "text-ink")} aria-pressed={!!liked[p.id]} aria-label={liked[p.id] ? "Unlike" : "Like"}>
-                  <Heart className={cn("size-4", liked[p.id] && "fill-current")} strokeWidth={1.5} aria-hidden />
+                <button onClick={() => toggleLike(p.id)} data-like className={cn("inline-flex min-h-10 w-14 items-center justify-start gap-2 rounded-md px-2 hover:bg-well", liked[p.id] && "text-ink")} aria-pressed={!!liked[p.id]} aria-label={liked[p.id] ? "Unlike" : "Like"}>
+                  <CheckCell state={liked[p.id] ? "done" : "todo"} size={20} />
                   {(!p.demo || p.likeCount > 0) && (
                     <span className="tnum" data-like-count>
                       {p.likeCount}
@@ -381,6 +380,7 @@ function MiniLeaders() {
           <li key={r.id} className="flex items-center gap-3 border-b border-rule py-2">
             <span className="tnum w-4 text-ink-2">{i + 1}</span>
             <span className="min-w-0 flex-1 truncate font-medium">{r.name}</span>
+            {r.id !== ME && <DemoTag what="member" />}
             <span className="tnum font-semibold">{r.disciplineScore || "None"}</span>
           </li>
         ))}

@@ -57,7 +57,7 @@ function ThemeToggle({ className }: { className?: string }) {
   const { theme, toggle } = useTheme();
   const next = theme === "dark" ? "light" : "dark";
   return (
-    <button onClick={toggle} className={cn("inline-flex min-h-8 items-center rounded-md px-1 text-ink-2 underline decoration-rule-strong underline-offset-4 hover:text-ink", className)} aria-label={`Switch to ${next} theme`}>
+    <button onClick={toggle} className={cn("inline-flex min-h-10 items-center rounded-md px-1 text-ink-2 underline decoration-rule-strong underline-offset-4 hover:text-ink", className)} aria-label={`Switch to ${next} theme`}>
       {theme === "dark" ? "Dark theme" : "Light theme"}
     </button>
   );
@@ -74,7 +74,7 @@ function LegalLinks({ className }: { className?: string }) {
     <ul className={cn("flex flex-wrap gap-x-4", className)} aria-label="Legal">
       {FOOTER_LINKS.map((l) => (
         <li key={l.href}>
-          <Link href={l.href} className="link inline-flex min-h-8 items-center">
+          <Link href={l.href} className="link inline-flex min-h-10 items-center">
             {l.label}
           </Link>
         </li>
@@ -87,8 +87,8 @@ function LegalLinks({ className }: { className?: string }) {
 function StatusBar() {
   const path = usePathname();
   return (
-    <footer className="fixed inset-x-0 bottom-0 z-30 hidden border-t border-rule bg-paper lg:block">
-      <div className="mx-auto flex h-9 max-w-[1264px] items-center gap-4 px-8 t-micro text-ink-2">
+    <footer className="fixed inset-x-0 bottom-0 z-30 hidden border-t border-rule bg-paper pb-[env(safe-area-inset-bottom)] lg:block">
+      <div className="mx-auto flex h-11 max-w-[1264px] items-center gap-4 px-8 t-micro text-ink-2">
         <span className="tag">Simulated</span>
         <p className="min-w-0 flex-1 truncate">
           {FOOTER_DISCLAIMER}
@@ -96,7 +96,7 @@ function StatusBar() {
         </p>
         <LegalLinks />
         <span className="h-4 w-px bg-rule" aria-hidden />
-        <Link href="/settings" aria-current={path.startsWith("/settings") ? "page" : undefined} className="link inline-flex min-h-8 items-center">
+        <Link href="/settings" aria-current={path.startsWith("/settings") ? "page" : undefined} className="link inline-flex min-h-10 items-center">
           Settings
         </Link>
         <ThemeToggle />
@@ -211,7 +211,7 @@ function TickerSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: () 
 function AccountReadout() {
   const equity = useEquity();
   return (
-    <Link href="/dashboard" className="flex min-h-10 shrink-0 items-center gap-3 rounded-md px-1 hover:bg-well" aria-label="Account value">
+    <Link href="/dashboard" className="flex min-h-10 shrink-0 items-center gap-3 rounded-md px-1 hover:bg-well" aria-label="Account value" title="Simulated practice account. Hypothetical results, not real money.">
       <span className="tnum t-wide text-base font-medium">{usd(equity)}</span>
       <Delta ratio={(equity - STARTING_CASH) / STARTING_CASH} size="xs" />
     </Link>
@@ -266,7 +266,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <StatusBar />
 
-          <main className="mx-auto w-full min-w-0 max-w-[1264px] flex-1 px-4 pb-[calc(88px+env(safe-area-inset-bottom))] pt-6 lg:px-8 lg:pb-24 lg:pt-10">
+          <main className="mx-auto w-full min-w-0 max-w-[1264px] flex-1 px-4 pb-[calc(88px+env(safe-area-inset-bottom))] pt-6 lg:px-8 lg:pb-[calc(var(--statusbar-h)+32px)] lg:pt-10">
             {hydrated ? children : <ShellSkeleton />}
             <PageFooter />
           </main>

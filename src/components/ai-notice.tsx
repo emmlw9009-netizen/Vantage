@@ -47,12 +47,12 @@ export function AiNotice() {
     <Dialog title="Nova uses an AI service" z="z-[64]">
       <p className="mt-2 text-ink-2">To write replies and trade reviews, the app sends the following to Anthropic, our AI provider:</p>
       <ul className="mt-3 list-disc space-y-1 pl-5 text-[15px]">
-        <li>your display name</li>
-        <li>your simulated portfolio and trades</li>
-        <li>your progress, and the text of the messages and posts you send to Nova</li>
+        <li>your display name, experience level and goal</li>
+        <li>your simulated portfolio, orders and trades, including trade notes</li>
+        <li>your lesson progress, and the text of the chat messages and community posts you send to Nova</li>
       </ul>
       <p className="mt-3 text-sm text-ink-2">
-        Nova can be wrong and is not investment advice. Read how this data is handled in the{" "}
+        Chat you wrote before this point stays on this device and is never sent. Nova can be wrong and is not investment advice. Read how this data is handled in the{" "}
         <Link href="/privacy#ai" target="_blank" rel="noopener" className="link font-medium">Privacy Policy</Link>.
       </p>
       <div className="mt-6 flex justify-end">
