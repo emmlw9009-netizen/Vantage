@@ -278,7 +278,8 @@ async function consent(page) {
     await tabB.getByRole("button", { name: /^Buy 3 SPY$/ }).click();
     await waitFor(async () => ((await state(tabB)).positions.SPY?.qty ?? 0) === 3, 5000, 100); // the order now takes a cross-tab lock first
     const spyBefore = (await state(tabB)).positions.SPY?.qty ?? 0;
-    const tradesBefore = (await state(tabB)).trades.length;
+    const entries = (st) => st.trades.filter((t) => t.role === "entry").length; // exit fills of earlier brackets are legitimate new trades
+    const tradesBefore = entries(await state(tabB));
     check("tab B trade is saved", spyBefore === 3);
     await tabA.bringToFront(); // the user switches back to the stale tab, which is visible again and ticking
     // tab A stays open and its 10s equity snapshot fires. Sample storage every 500ms: a stale write may be repaired a moment later by another tab, so one late read is not enough.
@@ -286,10 +287,10 @@ async function consent(page) {
     for (let i = 0; i < 30; i++) {
       await tabA.waitForTimeout(500);
       const st = await state(tabA);
-      if (st.positions.SPY?.qty !== 3 || st.trades.length < tradesBefore) lost++;
+      if (st.positions.SPY?.qty !== 3 || entries(st) < tradesBefore) lost++;
     }
     const afterA = await state(tabA);
-    check("multi-tab: trade made in tab B survives while tab A stays open 15s", lost === 0 && afterA.positions.SPY?.qty === 3 && afterA.trades.length === tradesBefore, `SPY ${afterA.positions.SPY?.qty}, trades ${afterA.trades.length}/${tradesBefore}, ${lost}/30 samples missing it`);
+    check("multi-tab: trade made in tab B survives while tab A stays open 15s", lost === 0 && afterA.positions.SPY?.qty === 3 && entries(afterA) === tradesBefore, `SPY ${afterA.positions.SPY?.qty}, entry trades ${entries(afterA)}/${tradesBefore} (new: ${afterA.trades.slice(0, 3).map((t) => `${t.role} ${t.symbol}`).join(", ")}), ${lost}/30 samples missing it`);
     // tab A's in-memory state caught up too (storage events rehydrate it), so its next write cannot lose the trade
     await tabA.reload();
     check("multi-tab: a fresh load of tab A still has the trade", (await state(tabA)).positions.SPY?.qty === 3);
@@ -991,6 +992,194 @@ async function consent(page) {
       check(`journal at ${w}px: Reason, Stop, Risk, Target and Size are all inside the screen, with no sideways scrolling`, r.labels.every((l) => l.length > 0 && l.every((x) => x <= r.vw)) && r.heads.every((x) => x <= r.vw) && r.scrollW <= r.vw + 1, JSON.stringify(r));
       await c.close();
     }
+  }
+  // ---- fix round 5: one locked, merging writer for every persisted write; deletion tombstone; toasts; typing during submit ----
+  const STREAM_INIT = ([n, ms]) => {
+    // a slow chunked AI reply, delivered through the real fetch path of the coach page
+    const orig = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const url = typeof input === "string" ? input : input.url;
+      if (/\/api\/coach/.test(url) && init && init.method === "POST") {
+        let i = 0;
+        const enc = new TextEncoder();
+        const stream = new ReadableStream({
+          async pull(c) {
+            if (i >= n) return c.close();
+            await new Promise((r) => setTimeout(r, ms));
+            c.enqueue(enc.encode(`w${i} `));
+            i++;
+          },
+        });
+        return Promise.resolve(new Response(stream, { status: 200, headers: { "content-type": "text/plain" } }));
+      }
+      return orig(input, init);
+    };
+  };
+  const routeAi = (pg) => pg.route("**/api/coach", (route) => (route.request().method() === "GET" ? route.fulfill({ json: { mode: "ai" } }) : route.continue()));
+  let ackedState;
+  {
+    const c0 = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+    const p0 = await c0.newPage();
+    await routeAi(p0);
+    await p0.goto(`${BASE}/coach`);
+    await p0.getByRole("dialog", { name: "Nova uses an AI service" }).getByRole("button", { name: "I understand" }).click();
+    await p0.waitForFunction(() => !!JSON.parse(localStorage.getItem("sp-app")).state.profile.aiNoticeAt);
+    ackedState = await c0.storageState();
+    await c0.close();
+  }
+  {
+    // (a) 50 orders in tab A while tab B streams an AI reply: zero lost orders, the reply intact
+    const N = 300;
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: ackedState });
+    const tabA = await c.newPage();
+    const tabB = await c.newPage();
+    watch(tabA, "stream-A");
+    watch(tabB, "stream-B");
+    await routeAi(tabA);
+    await routeAi(tabB);
+    await tabB.addInitScript(STREAM_INIT, [N, 45]);
+    await tabA.goto(`${BASE}/markets/KO`);
+    await tabB.goto(`${BASE}/coach`);
+    await tabA.locator("#qty").waitFor();
+    const n0 = (await state(tabA)).trades.length;
+    await tabB.getByLabel("Message Nova").fill("Stream me a long reply while I trade");
+    await tabB.getByLabel("Message Nova").press("Enter");
+    let placed = 0;
+    for (let i = 0; i < 50; i++) {
+      await tabA.locator("#qty").fill(i % 2 ? "2" : "1");
+      await tabA.getByRole("button", { name: /^Buy \d+ KO$/ }).click();
+      placed++;
+      await tabA.waitForTimeout(110);
+    }
+    const expected = Array.from({ length: N }, (_, i) => `w${i}`).join(" ");
+    await waitFor(async () => (await state(tabB)).chat.some((m) => m.role === "assistant" && m.content.trim() === expected), 40000, 500);
+    await tabA.waitForTimeout(1500);
+    const sa = await state(tabA), sb = await state(tabB);
+    const reply = (st) => st.chat.filter((m) => m.role === "assistant").map((m) => m.content.trim()).pop();
+    check("trading 50 orders in one tab while another streams a reply: zero lost orders", sa.trades.length === n0 + 50 && sb.trades.length === n0 + 50, `A ${sa.trades.length - n0}, B ${sb.trades.length - n0} of ${placed}`);
+    check("the streamed reply and the question are intact in storage and in both tabs", reply(sb) === expected && sb.chat.some((m) => m.role === "user" && m.content.startsWith("Stream me a long reply")) && reply(sa) === expected, `${(reply(sb) ?? "").length}/${expected.length} chars`);
+    await c.close();
+  }
+  {
+    // (b) delete in tab A while tab B streams or trades, 10 rounds: the deleted data never comes back
+    let back = 0;
+    const notes = [];
+    for (let r = 0; r < 10; r++) {
+      const streaming = r % 2 === 0;
+      const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: ackedState });
+      const tabA = await c.newPage();
+      const tabB = await c.newPage();
+      watch(tabA, `del-A${r}`);
+      watch(tabB, `del-B${r}`);
+      await routeAi(tabB);
+      if (streaming) await tabB.addInitScript(STREAM_INIT, [200, 45]);
+      await tabA.goto(`${BASE}/settings`);
+      await tabA.getByText("Membership").waitFor();
+      let stop = false;
+      let busyLoop;
+      if (streaming) {
+        await tabB.goto(`${BASE}/coach`);
+        await tabB.getByLabel("Message Nova").fill("Stream while the other tab deletes");
+        await tabB.getByLabel("Message Nova").press("Enter");
+      } else {
+        await tabB.goto(`${BASE}/markets/KO`);
+        await tabB.locator("#qty").waitFor();
+        busyLoop = (async () => {
+          for (let i = 0; !stop && i < 40; i++) {
+            await tabB.locator("#qty").fill(i % 2 ? "2" : "1").catch(() => {});
+            await tabB.getByRole("button", { name: /^Buy \d+ KO$/ }).click({ timeout: 1500 }).catch(() => {});
+            await tabB.waitForTimeout(90);
+          }
+        })();
+      }
+      await tabA.waitForTimeout(1200);
+      await tabA.getByRole("button", { name: "Delete all my data" }).click();
+      await tabA.getByLabel("Type DELETE to confirm").fill("DELETE");
+      await tabA.getByRole("dialog").getByRole("button", { name: "Delete everything" }).click();
+      await tabA.getByLabel(/I.m 18 or older/).waitFor({ timeout: 10000 });
+      let dirty = 0;
+      for (let k = 0; k < 8; k++) {
+        await tabA.waitForTimeout(400);
+        for (const pg of [tabA, tabB]) {
+          const st = await state(pg).catch(() => undefined);
+          if (st && (st.trades?.length > 0 || st.profile?.onboarded || st.profile?.consent || (st.chat?.length ?? 0) > 0)) dirty++;
+        }
+      }
+      stop = true;
+      await busyLoop;
+      const bOnboarding = await tabB.getByLabel(/I.m 18 or older/).isVisible().catch(() => false);
+      if (dirty > 0 || !bOnboarding) {
+        back++;
+        notes.push(`round ${r} ${streaming ? "stream" : "trade"}: dirty samples ${dirty}, B onboarding ${bOnboarding}`);
+      }
+      await c.close();
+    }
+    check("delete in one tab while another streams or trades (10 rounds): the deleted data never comes back", back === 0, notes.join("; "));
+  }
+  {
+    // (c) toasts never overlap the ticket's controls, or the coach composer, at 1440x900
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+    await c.addInitScript(() => { window.__VANTAGE_TEST__ = true; });
+    const p = await c.newPage();
+    watch(p, "toast-overlap");
+    const overlaps = async (toastSel, targetSel) =>
+      p.evaluate(([ts, gs]) => {
+        const hit = [];
+        const toasts = [...document.querySelectorAll(ts)].map((e) => e.getBoundingClientRect());
+        for (const el of document.querySelectorAll(gs)) {
+          const r = el.getBoundingClientRect();
+          if (!r.width || !r.height) continue;
+          if (toasts.some((t) => t.left < r.right && t.right > r.left && t.top < r.bottom && t.bottom > r.top)) hit.push((el.getAttribute("aria-label") || el.textContent || el.id || el.tagName).trim().slice(0, 24));
+        }
+        return { toasts: toasts.length, hit };
+      }, [toastSel, targetSel]);
+    await p.goto(`${BASE}/markets/NVDA`);
+    await p.waitForFunction(() => !!window.__vantageTest?.toast);
+    await p.evaluate(() => {
+      const t = window.__vantageTest.toast;
+      t({ title: "Limit order filled", body: "Bought 3 NVDA at $189.00.", tone: "good" });
+      t({ title: "NVDA filled without a stop-loss", body: "Add one next time.", tone: "risk" });
+      t({ title: "Mission done: Place your first trade", tone: "default" });
+    });
+    await p.waitForTimeout(400);
+    const a = await overlaps('[data-toaster] [role="status"], [data-toaster] [role="alert"]', 'aside[aria-label="Order ticket"] button, aside[aria-label="Order ticket"] input, aside[aria-label="Order ticket"] textarea');
+    check("symbol page: toasts never cover the ticket's Buy/Sell, order type or fields", a.toasts >= 2 && a.hit.length === 0, JSON.stringify(a));
+    await p.goto(`${BASE}/coach`);
+    await p.waitForFunction(() => !!window.__vantageTest?.toast);
+    await p.evaluate(() => {
+      window.__vantageTest.toast({ title: "Mission done: Ask your coach a question", tone: "good" });
+      window.__vantageTest.toast({ title: "A second note", tone: "default" });
+    });
+    await p.waitForTimeout(400);
+    const b = await overlaps('[data-toaster] [role="status"], [data-toaster] [role="alert"]', 'textarea, form button, form a');
+    check("coach page: toasts never cover the composer", b.toasts >= 2 && b.hit.length === 0, JSON.stringify(b));
+    await p.waitForTimeout(13000);
+    check("toasts, risk ones included, go away on their own", (await p.locator('[data-toaster] [role="status"], [data-toaster] [role="alert"]').count()) === 0);
+    await c.close();
+  }
+  {
+    // (d) text typed while the order waits for the cross-tab lock is kept
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+    const holder = await c.newPage();
+    const p = await c.newPage();
+    watch(holder, "hold");
+    watch(p, "typing");
+    await holder.goto(`${BASE}/dashboard`);
+    await p.goto(`${BASE}/markets/KO`);
+    await p.locator("#qty").waitFor();
+    await holder.evaluate(() => new Promise((res) => {
+      navigator.locks.request("vantage-write", () => new Promise((rel) => { window.__release = rel; res(true); }));
+    }));
+    const n0 = (await state(p)).trades.length;
+    await p.locator("#qty").fill("4");
+    await p.getByRole("button", { name: /^Buy 4 KO$/ }).click(); // waits for the lock the other tab holds
+    await p.locator("#thesis").fill("Typed while the order was still waiting for its turn.");
+    await p.waitForTimeout(300);
+    await holder.evaluate(() => window.__release());
+    await waitFor(async () => (await state(p)).trades.length === n0 + 1, 8000, 100);
+    await p.waitForTimeout(400);
+    check("text typed after Buy was clicked, before the order completed, is kept", (await p.locator("#thesis").inputValue()) === "Typed while the order was still waiting for its turn." && (await state(p)).trades.length === n0 + 1);
+    await c.close();
   }
   {
     // settings: export, theme, reset, delete

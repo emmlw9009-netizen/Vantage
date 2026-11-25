@@ -113,12 +113,19 @@ function Coach() {
         const reader = res.body.getReader();
         const dec = new TextDecoder();
         let acc = "";
+        let lastWrite = 0;
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
           acc += dec.decode(value, { stream: true });
-          updateChat(replyId, acc);
+          // batch the streamed text: one store write about every 200 ms, and a final one below
+          if (Date.now() - lastWrite > 200) {
+            lastWrite = Date.now();
+            updateChat(replyId, acc);
+          }
         }
+        acc += dec.decode();
+        updateChat(replyId, acc);
         if (!acc.trim()) updateChat(replyId, offlineAnswer(q, context));
       }
     } catch {

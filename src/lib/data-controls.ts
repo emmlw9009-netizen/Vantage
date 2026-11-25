@@ -1,3 +1,5 @@
+import { markDeleted, withWriteLock } from "@/store/sync";
+
 /** Export and delete everything the app stores in this browser. Client only. */
 const STORE_KEYS = ["sp-app", "sp-market"] as const;
 const ALL_KEYS = [...STORE_KEYS, ...STORE_KEYS.map((k) => `${k}:stamp`), "sp-theme"] as const;
@@ -46,8 +48,13 @@ export function deleteAllData() {
       } catch {}
     }
   };
-  clear();
-  // The market clock may write once more before the page unloads; clear again on the way out.
-  window.addEventListener("pagehide", clear);
-  window.location.assign("/dashboard");
+  // Under the cross-tab write lock, with a durable epoch written first: tabs that were open before this point can
+  // never write the old account back (they reload instead).
+  void withWriteLock(() => {
+    markDeleted();
+    clear();
+    // The market clock may write once more before the page unloads; clear again on the way out.
+    window.addEventListener("pagehide", clear);
+    window.location.assign("/dashboard");
+  });
 }

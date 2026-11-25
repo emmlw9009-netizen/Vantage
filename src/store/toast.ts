@@ -22,6 +22,7 @@ interface ToastState {
 }
 
 const AUTO_MS = 6000;
+const RISK_MS = 12000;
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 let lastOutside: HTMLElement | null = null;
 if (typeof document !== "undefined") {
@@ -52,11 +53,12 @@ export const useToast = create<ToastState>()((set, get) => ({
     timers.delete(id);
   },
   release: (id) => {
-    // risk and warning toasts stay until dismissed
+    // risk and warning toasts stay longer, but never forever
     const toast = get().toasts.find((x) => x.id === id);
-    if (!toast || toast.tone === "risk" || toast.tone === "warn") return;
+    if (!toast) return;
+    const ms = toast.tone === "risk" || toast.tone === "warn" ? RISK_MS : AUTO_MS;
     const old = timers.get(id);
     if (old) clearTimeout(old);
-    timers.set(id, setTimeout(() => get().dismiss(id), AUTO_MS));
+    timers.set(id, setTimeout(() => get().dismiss(id), ms));
   },
 }));

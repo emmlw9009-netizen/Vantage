@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Fragment, useId, useRef } from "react";
 import { AnimatePresence, useReducedMotion } from "motion/react";
 import * as m from "motion/react-m";
@@ -83,10 +84,12 @@ export function Toaster() {
   const dismiss = useToast((s) => s.dismiss);
   const hold = useToast((s) => s.hold);
   const release = useToast((s) => s.release);
+  // on the coach page the composer sits at the bottom of the column: lift toasts above it
+  const lift = usePathname().startsWith("/coach");
   const reduce = useReducedMotion();
   const shown = toasts.slice(-2);
   return (
-    <div data-toaster className="pointer-events-none fixed left-4 right-4 top-[64px] z-50 flex flex-col gap-2 sm:right-auto sm:w-[360px] lg:left-auto lg:right-8 lg:top-[68px]">
+    <div data-toaster className={`pointer-events-none fixed left-4 right-4 top-[64px] z-50 flex flex-col gap-2 sm:right-auto sm:w-[360px] lg:left-8 lg:top-auto ${lift ? "lg:bottom-[calc(var(--statusbar-h)+136px)]" : "lg:bottom-[calc(var(--statusbar-h)+16px)]"}`}>
       <AnimatePresence initial={false}>
         {shown.map((t) => (
           <m.div
