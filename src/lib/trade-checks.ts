@@ -1,3 +1,4 @@
+import { atMost, meetsRewardRisk } from "./money";
 // The five pre-flight checks as they apply to a *recorded* trade (journal, review, community, share).
 // Mirrors lib/preflight.ts thresholds: reason ≥ 40 chars, stop below entry, risk ≤ 2%, reward ≥ 2× risk, position ≤ 25%.
 import type { Trade } from "@/store/app";
@@ -29,9 +30,9 @@ export function tradeChecks(t: Trade): Record<CheckId, CheckState> | null {
   return {
     reason,
     stop: t.stopLoss != null && t.stopLoss > 0 && t.stopLoss < t.price ? "done" : "todo",
-    risk: risk != null && risk <= 0.02 ? "done" : "todo",
-    target: rr != null && rr >= 2 ? "done" : "todo",
-    size: pos == null || pos <= 0.25 ? "done" : "todo",
+    risk: risk != null && atMost(risk, 0.02) ? "done" : "todo",
+    target: meetsRewardRisk(rr) ? "done" : "todo",
+    size: pos == null || atMost(pos, 0.25) ? "done" : "todo",
   };
 }
 

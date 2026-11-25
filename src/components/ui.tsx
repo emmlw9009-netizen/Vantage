@@ -81,10 +81,12 @@ export function Pill({ children, className }: { children: React.ReactNode; class
 export function Toaster() {
   const toasts = useToast((s) => s.toasts);
   const dismiss = useToast((s) => s.dismiss);
+  const hold = useToast((s) => s.hold);
+  const release = useToast((s) => s.release);
   const reduce = useReducedMotion();
   const shown = toasts.slice(-2);
   return (
-    <div data-toaster className="pointer-events-none fixed left-4 right-4 top-[64px] z-50 flex flex-col gap-2 sm:right-auto sm:w-[360px] lg:left-8 lg:top-auto lg:bottom-[calc(var(--statusbar-h)+16px)]">
+    <div data-toaster className="pointer-events-none fixed left-4 right-4 top-[64px] z-50 flex flex-col gap-2 sm:right-auto sm:w-[360px] lg:left-auto lg:right-8 lg:top-[68px]">
       <AnimatePresence initial={false}>
         {shown.map((t) => (
           <m.div
@@ -95,7 +97,11 @@ export function Toaster() {
             exit={{ opacity: 0, transition: { duration: reduce ? 0 : 0.12 } }}
             transition={{ duration: 0.14 }}
             className="float pointer-events-auto flex items-start gap-3 py-3 pl-4 pr-1.5"
-            role="status"
+            role={t.tone === "risk" ? "alert" : "status"}
+            onMouseEnter={() => hold(t.id)}
+            onMouseLeave={() => release(t.id)}
+            onFocus={() => hold(t.id)}
+            onBlur={() => release(t.id)}
           >
             {t.tone === "good" && <MarkGlyph kind="good" className="mt-0.5" />}
             {t.tone === "risk" && <MarkGlyph kind="risk" className="mt-0.5" />}

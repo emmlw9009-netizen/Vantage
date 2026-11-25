@@ -16,6 +16,19 @@ interface ToastState {
   toasts: Toast[];
   push: (t: Omit<Toast, "id">) => void;
   dismiss: (id: string) => void;
+  /** Pause or resume the auto-dismiss timer (hover and focus). */
+  hold: (id: string) => void;
+  release: (id: string) => void;
+}
+
+const AUTO_MS = 6000;
+const timers = new Map<string, ReturnType<typeof setTimeout>>();
+let lastOutside: HTMLElement | null = null;
+if (typeof document !== "undefined") {
+  document.addEventListener("focusin", (e) => {
+    const el = e.target as HTMLElement;
+    if (!el.closest?.("[data-toaster]")) lastOutside = el;
+  });
 }
 
 export const useToast = create<ToastState>()((set, get) => ({
@@ -23,7 +36,27 @@ export const useToast = create<ToastState>()((set, get) => ({
   push: (t) => {
     const id = uid();
     set({ toasts: [...get().toasts, { ...t, id }].slice(-4) });
-    setTimeout(() => get().dismiss(id), 5200);
+    get().release(id);
   },
-  dismiss: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
+  dismiss: (id) => {
+    const t = timers.get(id);
+    if (t) clearTimeout(t);
+    timers.delete(id);
+    // if focus was inside the toast, give it back to what had it before
+    if (typeof document !== "undefined" && document.activeElement?.closest("[data-toaster]") && lastOutside?.isConnected) lastOutside.focus();
+    set({ toasts: get().toasts.filter((x) => x.id !== id) });
+  },
+  hold: (id) => {
+    const t = timers.get(id);
+    if (t) clearTimeout(t);
+    timers.delete(id);
+  },
+  release: (id) => {
+    // risk and warning toasts stay until dismissed
+    const toast = get().toasts.find((x) => x.id === id);
+    if (!toast || toast.tone === "risk" || toast.tone === "warn") return;
+    const old = timers.get(id);
+    if (old) clearTimeout(old);
+    timers.set(id, setTimeout(() => get().dismiss(id), AUTO_MS));
+  },
 }));

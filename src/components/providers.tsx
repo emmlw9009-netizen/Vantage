@@ -4,12 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { useMarket } from "@/store/market";
 import { useApp, equityOf } from "@/store/app";
 import { useToast } from "@/store/toast";
-import { isClockLeader, startClockElection, startCrossTabSync } from "@/store/sync";
+import { isClockLeader, startClockElection, startCrossTabSync, withWriteLock } from "@/store/sync";
 import { MISSIONS, MissionId } from "@/lib/course";
 import { missionDone } from "@/lib/missions";
 import { rulesReview } from "@/lib/offline-coach";
 import { usd } from "@/lib/format";
 import { scoreLabel } from "@/lib/analysis";
+import { preflightChecks } from "@/lib/preflight";
+import { analyzeTrade } from "@/lib/analysis";
+import { tradeChecks } from "@/lib/trade-checks";
 import { aiGate, hasCurrentConsent } from "@/lib/ai-notice";
 
 const TICK_MS = 2000;
@@ -21,7 +24,18 @@ export function useHydrated() {
   return h;
 }
 
+/** One trade, one review: with several tabs open, only the tab that holds the per-trade lock requests it. */
 async function requestReview(tradeId: string) {
+  if (inflight.has(tradeId)) return;
+  if (typeof navigator === "undefined" || !("locks" in navigator)) return doReview(tradeId);
+  await navigator.locks.request(`vantage-review-${tradeId}`, { ifAvailable: true }, async (lock) => {
+    if (!lock) return;
+    if (useApp.getState().trades.find((x) => x.id === tradeId)?.reviewStatus !== "pending") return;
+    await doReview(tradeId);
+  });
+}
+
+async function doReview(tradeId: string) {
   if (inflight.has(tradeId)) return;
   const s = useApp.getState();
   const t = s.trades.find((x) => x.id === tradeId);
@@ -39,7 +53,7 @@ async function requestReview(tradeId: string) {
       return;
     }
     if (gate === "offline") {
-      useApp.getState().setReview(tradeId, rulesReview(t));
+      void withWriteLock(() => useApp.getState().setReview(tradeId, rulesReview(t)));
       return;
     }
     const res = await fetch("/api/review", {
@@ -54,10 +68,10 @@ async function requestReview(tradeId: string) {
       }),
     });
     const data = await res.json();
-    if (data?.review) useApp.getState().setReview(tradeId, data.review);
-    else useApp.getState().setReview(tradeId, rulesReview(t));
+    if (data?.review) void withWriteLock(() => useApp.getState().setReview(tradeId, data.review));
+    else void withWriteLock(() => useApp.getState().setReview(tradeId, rulesReview(t)));
   } catch {
-    useApp.getState().setReview(tradeId, rulesReview(t));
+    void withWriteLock(() => useApp.getState().setReview(tradeId, rulesReview(t)));
   }
 }
 
@@ -77,9 +91,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   // Test-only price driver. Exists only when the verify script sets window.__VANTAGE_TEST__ before load; users never have it.
   useEffect(() => {
-    const w = window as unknown as { __VANTAGE_TEST__?: boolean; __vantageTest?: { setPrices: (p: Record<string, number>) => void } };
+    const w = window as unknown as { __VANTAGE_TEST__?: boolean; __vantageTest?: { setPrices: (p: Record<string, number>) => void; modules: unknown } };
     if (!w.__VANTAGE_TEST__) return;
     w.__vantageTest = {
+      modules: { preflightChecks, analyzeTrade, tradeChecks, missionDone },
       setPrices: (p) => {
         useMarket.setState((m) => ({ prices: { ...m.prices, ...p } }));
         useApp.getState().processPrices(useMarket.getState().prices);
@@ -107,7 +122,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     const id = setInterval(() => {
       if (document.hidden || !isClockLeader()) return;
       useMarket.getState().tick();
-      useApp.getState().processPrices(useMarket.getState().prices);
+      void withWriteLock(() => useApp.getState().processPrices(useMarket.getState().prices));
     }, TICK_MS);
     return () => {
       clearInterval(id);

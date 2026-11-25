@@ -480,6 +480,13 @@ textarea.field {
     line-height: 29px;
   }
 }
+th {
+  font-weight: inherit;
+}
+strong {
+  font-weight: 600;
+}
+
 /* a legal placeholder that the owner still has to fill in (see PlaceholderMarks) */
 .prose-legal mark.ph {
   background: var(--well);

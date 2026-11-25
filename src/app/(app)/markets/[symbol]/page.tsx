@@ -80,7 +80,7 @@ export default function SymbolPage() {
 
   return (
     <div>
-      <Link href="/markets" className="link t-small text-ink-2">
+      <Link href="/markets" className="link inline-flex min-h-10 items-center t-small text-ink-2">
         Markets
       </Link>
 

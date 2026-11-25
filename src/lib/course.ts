@@ -62,7 +62,7 @@ export interface Module {
 export const COURSE: Module[] = [
   {
     id: "foundations",
-    title: "Market Foundations",
+    title: "Market foundations",
     description: "What you actually own when you buy a stock, and how prices move.",
     lessons: [
       {
@@ -154,7 +154,7 @@ export const COURSE: Module[] = [
   },
   {
     id: "risk",
-    title: "Risk First",
+    title: "Risk first",
     description: "The part many beginners skip, and a common reason people struggle.",
     lessons: [
       {
@@ -266,7 +266,7 @@ export const COURSE: Module[] = [
   },
   {
     id: "charts",
-    title: "Reading Charts",
+    title: "Reading charts",
     description: "Trends, levels and moving averages without the mysticism.",
     lessons: [
       {
@@ -387,7 +387,7 @@ export const COURSE: Module[] = [
   },
   {
     id: "psychology",
-    title: "Trader Psychology",
+    title: "Trader psychology",
     description: "Your brain is the biggest risk in your portfolio.",
     lessons: [
       {
@@ -465,7 +465,7 @@ export const COURSE: Module[] = [
   },
   {
     id: "strategy",
-    title: "Building Your Strategy",
+    title: "Building your strategy",
     description: "Put it all together into a plan you can actually follow.",
     lessons: [
       {

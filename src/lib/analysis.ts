@@ -1,5 +1,6 @@
 import { TICKER_MAP } from "./market-data";
 import { pct, usd } from "./format";
+import { atMost, meetsRewardRisk, rewardRiskOf } from "./money";
 
 export type FlagTone = "good" | "warn" | "risk";
 
@@ -98,11 +99,11 @@ export function analyzeTrade(t: TradeInput, ctx: PortfolioContext): Analysis {
     // ---- position size ----
     // When risk is defined by a stop at ≤ 2% of the account, a larger position is
     // the textbook result of sizing from the stop, so only flag true concentration.
-    const definedRisk = !!t.stopLoss && t.stopLoss < t.price && ((t.price - t.stopLoss) * t.qty) / Math.max(1, ctx.equity) <= 0.02;
-    if (definedRisk && positionPct > 0.12 && positionPct <= 0.25) {
+    const definedRisk = !!t.stopLoss && t.stopLoss < t.price && ((t.price - t.stopLoss) * t.qty) / Math.max(1, ctx.equity) <= 0.02 + 1e-9;
+    if (definedRisk && positionPct > 0.12 && atMost(positionPct, 0.25)) {
       score += 4;
       flags.push({ id: "size-risk", tone: "good", title: `Sized from your stop: ${pct(positionPct, 0, false)} of your account`, detail: "Your stop caps the loss, so this size is fine. Just remember gaps (e.g. earnings) can jump past a stop.", lesson: "position-sizing" });
-    } else if (positionPct > 0.25) {
+    } else if (!atMost(positionPct, 0.25)) {
       score -= 22;
       flags.push({ id: "size-big", tone: "risk", title: `Concentrated: ${pct(positionPct, 0, false)} of your account`, detail: `One position this large means a single bad headline can do real damage. A common guideline is to keep one position to roughly 5–10% of the account (general guidance, not a rule).`, lesson: "position-sizing" });
     } else if (positionPct > 0.12) {
@@ -118,7 +119,7 @@ export function analyzeTrade(t: TradeInput, ctx: PortfolioContext): Analysis {
       const riskPerShare = t.price - t.stopLoss;
       const riskPct = (riskPerShare * t.qty) / Math.max(1, ctx.equity);
       metrics.riskPct = riskPct;
-      if (riskPct <= 0.02) {
+      if (atMost(riskPct, 0.02)) {
         score += 10;
         flags.push({ id: "risk-ok", tone: "good", title: `Defined risk: ${pct(riskPct, 2, false)} of your account`, detail: `If the stop at ${usd(t.stopLoss)} triggers, you lose about ${usd(riskPerShare * t.qty)}. That's inside the classic 1–2% rule.`, lesson: "stop-losses" });
       } else {
@@ -126,9 +127,9 @@ export function analyzeTrade(t: TradeInput, ctx: PortfolioContext): Analysis {
         flags.push({ id: "risk-high", tone: "warn", title: `Risking ${pct(riskPct, 1, false)} of your account`, detail: `A stop-out costs ${usd(riskPerShare * t.qty)}. Try a smaller size or a tighter stop to get under 2%.`, lesson: "position-sizing" });
       }
       if (t.takeProfit && t.takeProfit > t.price) {
-        const rr = (t.takeProfit - t.price) / riskPerShare;
+        const rr = rewardRiskOf(t.price, t.stopLoss, t.takeProfit) ?? (t.takeProfit - t.price) / riskPerShare;
         metrics.rewardRisk = rr;
-        if (rr >= 2) {
+        if (meetsRewardRisk(rr)) {
           score += 6;
           flags.push({ id: "rr-good", tone: "good", title: `Reward-to-risk ${rr.toFixed(1)} : 1`, detail: "At this ratio you can be wrong more than half the time and still come out ahead.", lesson: "risk-reward" });
         } else if (rr < 1.2) {

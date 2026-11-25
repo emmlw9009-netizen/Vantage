@@ -172,7 +172,7 @@ export default function Privacy() {
       </S>
 
       <S id="representative" title="16. EU and UK representative">
-        <p>If required by law we will appoint a representative and, if required, a data protection officer: [EU/UK representative and DPO details, if required].</p>
+        <p>If required by law we will appoint a representative and, if required, a data protection officer: {LEGAL.euRepresentative}.</p>
       </S>
 
       <S id="changes" title="17. Changes to this policy">

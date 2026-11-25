@@ -171,7 +171,7 @@ function Feed() {
               <p className="mt-3 whitespace-pre-line break-words text-[15px] leading-6 [overflow-wrap:anywhere]">{p.body}</p>
               <div className="mt-2 flex items-center gap-1 t-small text-ink-2">
                 <button onClick={() => toggleLike(p.id)} data-like className={cn("inline-flex min-h-10 w-14 items-center justify-start gap-2 rounded-md px-2 hover:bg-well", liked[p.id] && "text-ink")} aria-pressed={!!liked[p.id]} aria-label={liked[p.id] ? "Unlike" : "Like"}>
-                  <CheckCell state={liked[p.id] ? "done" : "todo"} size={20} />
+                  <CheckCell state={liked[p.id] ? "done" : "todo"} size={20} ink />
                   {(!p.demo || p.likeCount > 0) && (
                     <span className="tnum" data-like-count>
                       {p.likeCount}
@@ -333,7 +333,7 @@ function Leaderboard() {
       </div>
       <p className="mt-3 t-small text-ink-2">{by === "disciplineScore" ? "Ranked by average process score. Process over luck." : "Ranked by simulated total return since the start."}</p>
       <p className="mt-1 t-micro text-ink-2" data-testid="sim-results-note">
-        <strong className="font-semibold text-ink">Simulated results.</strong> Not real trades. They don&apos;t include fees, slippage or real market conditions, and past simulated results don&apos;t predict real ones. Rows marked Demo are fictional.
+        <strong className="font-semibold text-ink">Simulated results.</strong> Not real trades. They include a small simulated slippage but no fees, taxes or real market conditions, and past simulated results don&apos;t predict real ones. Rows marked Demo are fictional.
       </p>
       <ol className="mt-4 border-t border-rule-strong">
         {rows.map((r, i) => (

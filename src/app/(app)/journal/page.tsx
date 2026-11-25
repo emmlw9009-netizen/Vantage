@@ -38,7 +38,7 @@ export default function JournalPage() {
               </Link>
             }
           />
-          <p className="mt-6 t-small text-ink-2">
+          <p className="sr-only">
             Trades: <span data-testid="journal-trade-count">0</span>
           </p>
         </div>
@@ -58,13 +58,46 @@ export default function JournalPage() {
               </div>
             ))}
           </dl>
-          <p className="mt-2 t-micro text-ink-2">Simulated results. Not real trades, and they don&apos;t include fees or slippage.</p>
+          <p className="mt-2 t-micro text-ink-2">Simulated results. Not real trades, and they include a small simulated slippage but no fees or taxes.</p>
 
           <div className="mt-12 grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_300px]">
             <section aria-labelledby="record-h" className="min-w-0">
               <SectionTitle id="record-h" title="Check record" action={<span className="t-small text-ink-2">Latest {record.length}</span>} />
               {/* relative: makes the scroller the containing block, so the cells' sr-only text is clipped with the table */}
-              <div className="relative overflow-x-auto">
+              {/* phones: one block per trade, no horizontal scrolling (spec 8.2, 12.9) */}
+              <div className="sm:hidden" data-testid="record-phone">
+                <ul className="border-t border-rule-strong">
+                  {record.map((t) => {
+                    const c = tradeChecks(t)!;
+                    return (
+                      <li key={t.id} className="border-b border-rule py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="t-small">
+                              <span className="font-medium">{t.side === "buy" ? "Buy" : "Sell"}</span> {t.qty} {t.symbol} <span className="tnum text-ink-2">at {usd(t.price)}</span>
+                            </p>
+                            <p className="t-micro text-muted">{timeAgo(t.at)}</p>
+                          </div>
+                          <ScoreLoop score={t.score} size="s" />
+                        </div>
+                        <CheckStrip checks={c} labeled size={24} className="mt-2" />
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className="mt-3">
+                  <p className="t-micro font-semibold">Checks kept</p>
+                  <div className="mt-1 flex gap-2">
+                    {CHECKS.map((k) => (
+                      <span key={k.id} className="flex min-w-0 flex-col items-center">
+                        <span className="tnum t-micro font-semibold">{st.kept[k.id].done}/{st.kept[k.id].total}</span>
+                        <span className="t-micro text-ink-2">{k.short}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="relative hidden overflow-x-auto sm:block">
                 <table className="w-full min-w-[520px] t-table">
                   <caption className="sr-only">The five pre-flight checks for each of your trades, newest first</caption>
                   <thead>

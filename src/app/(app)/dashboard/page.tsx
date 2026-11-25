@@ -27,7 +27,7 @@ function useCoachBrief() {
   return useMemo(() => {
     const tips: { body: string; href: string; cta: string }[] = [];
     const pos = Object.values(positions);
-    if (!trades.length) tips.push({ body: "Pick a company you know, write one sentence on why you'd buy it, and set a stop-loss. I'll review the trade the moment it fills.", href: "/markets/AAPL", cta: "Open Apple" });
+    if (!trades.length) tips.push({ body: "Start with SPY, the whole market in one trade. Write one sentence on why you'd buy it, and set a stop-loss. I'll review the trade the moment it fills.", href: "/markets/SPY", cta: "Open SPY" });
     const unprotected = pos.filter((p) => !orders.some((o) => o.status === "open" && o.symbol === p.symbol && o.role === "stop-loss"));
     if (unprotected.length)
       tips.push({
@@ -115,7 +115,7 @@ export default function Dashboard() {
               </div>
             </div>
             <p className="mt-2 t-micro text-ink-2" data-testid="sim-results-note">
-              Simulated results. Not real trades, and they don&apos;t include fees or slippage.
+              Simulated results. Not real trades, and they include a small simulated slippage but no fees or taxes.
             </p>
             {showStart && (
               <section aria-labelledby="start-h" className="mt-6 border-t border-rule-strong pt-4" data-testid="start-here">
@@ -184,13 +184,13 @@ export default function Dashboard() {
               id="pos-h"
               title="Positions"
               action={
-                <Link href="/markets" className="btn btn-primary">
+                <Link href="/markets" className={showStart ? "btn btn-secondary" : "btn btn-primary"}>
                   Trade
                 </Link>
               }
             />
             {pos.length === 0 ? (
-              <EmptyLedger cols={["Symbol", "Shares", "Value", "P&L"]} text="No positions yet. Your first buy will be recorded here." action={<Link href="/markets" className="btn btn-secondary">Find a stock</Link>} />
+              <EmptyLedger cols={["Symbol", "Shares", "Value", "P&L"]} text="No positions yet. Your first buy will be recorded here." action={showStart ? undefined : <Link href="/markets" className="btn btn-secondary">Find a stock</Link>} />
             ) : (
               <table className="w-full t-table">
                 <caption className="sr-only">Your open positions</caption>
@@ -277,7 +277,7 @@ export default function Dashboard() {
 
           {/* latest review */}
           <section aria-labelledby="review-h" className="min-w-0">
-            <SectionTitle id="review-h" title="Latest review" action={trades.length > 0 ? <Link href="/journal" className="link t-small">See journal</Link> : undefined} />
+            <SectionTitle id="review-h" title="Latest review" action={trades.length > 0 ? <Link href="/journal" className="link inline-flex min-h-10 items-center t-small">See journal</Link> : undefined} />
             {latest ? (
               <ReviewCard trade={latest} compact />
             ) : (
@@ -366,7 +366,7 @@ function Notes({ brief }: { brief: { body: string; href: string; cta: string }[]
         {brief.map((t, i) => (
           <li key={i}>
             <p className="t-note">{t.body}</p>
-            <Link href={t.href} className="link mt-1 inline-block t-small font-medium">
+            <Link href={t.href} className="link mt-1 inline-flex min-h-10 items-center t-small font-medium">
               {t.cta}
             </Link>
           </li>

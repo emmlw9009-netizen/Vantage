@@ -122,6 +122,7 @@ async function consent(page) {
   // validation
   await page.locator("#qty").fill("999999");
   await page.getByRole("button", { name: /^Buy 999999 TSLA$/ }).click();
+  await page.getByRole("alert").filter({ hasText: "Not enough cash" }).waitFor({ timeout: 5000 }).catch(() => {});
   check("rejects buys beyond cash", await page.getByRole("alert").filter({ hasText: "Not enough cash" }).isVisible());
 
   // sell with realized P&L
@@ -135,6 +136,7 @@ async function consent(page) {
   check("realized P&L computed", Math.abs(t3.realizedPnl - (t3.price - t2.price) * 30) < 0.05, `P&L ${t3.realizedPnl?.toFixed(2)}`);
   await page.locator("#qty").fill("999");
   await page.getByRole("button", { name: /^Sell 999 TSLA$/ }).click();
+  await page.getByRole("alert").filter({ hasText: "only hold" }).waitFor({ timeout: 5000 }).catch(() => {});
   check("rejects selling more than held", await page.getByRole("alert").filter({ hasText: "only hold" }).isVisible());
 
   // limit order: buy limit above market fills on next tick
@@ -214,6 +216,7 @@ async function consent(page) {
   }, 60000);
   check("coach replies", replied);
   await page.goto(`${BASE}/coach?trade=${t2.id}`);
+  await waitFor(async () => (await page.getByLabel("Message Nova").inputValue().catch(() => "")).includes("TSLA"), 8000, 200);
   check("coach pre-fills trade question", (await page.getByLabel("Message Nova").inputValue()).includes("TSLA"));
 
   // community
@@ -273,6 +276,7 @@ async function consent(page) {
     await tabA.waitForTimeout(1500);
     await tabB.locator("#qty").fill("3");
     await tabB.getByRole("button", { name: /^Buy 3 SPY$/ }).click();
+    await waitFor(async () => ((await state(tabB)).positions.SPY?.qty ?? 0) === 3, 5000, 100); // the order now takes a cross-tab lock first
     const spyBefore = (await state(tabB)).positions.SPY?.qty ?? 0;
     const tradesBefore = (await state(tabB)).trades.length;
     check("tab B trade is saved", spyBefore === 3);
@@ -308,6 +312,7 @@ async function consent(page) {
     check("N4 checklist does not tick a stop above the expected fill", (await checkOf(page, "stop")) === "false");
     const before = (await state(page)).orders.length;
     await page.getByRole("button", { name: "Place limit buy" }).click();
+    await page.getByRole("alert").filter({ hasText: "stop-loss must be below" }).waitFor({ timeout: 5000 }).catch(() => {});
     check("N4 limit buy with stop above the fill price is rejected with a reason", await page.getByRole("alert").filter({ hasText: "stop-loss must be below" }).isVisible() && (await state(page)).orders.length === before);
 
     // fill-time: price gaps below the stop, so no valid stop leg can exist. It is cancelled, noted and toasted, never dropped silently.
@@ -319,6 +324,7 @@ async function consent(page) {
     await page.locator("#stop").fill((jp * 0.99).toFixed(2));
     await page.locator("#target").fill((jp * 1.3).toFixed(2));
     await page.getByRole("button", { name: "Place limit buy" }).click();
+    await waitFor(async () => (await state(page)).orders.some((o) => o.symbol === "JNJ" && o.status === "open" && o.type === "limit"), 5000, 100);
     const jOrder = (await state(page)).orders.find((o) => o.symbol === "JNJ" && o.status === "open" && o.type === "limit");
     check("N4 limit buy with a valid stop is accepted", !!jOrder);
     await page.evaluate((px) => window.__vantageTest.setPrices({ JNJ: px }), jp * 0.96);
@@ -800,6 +806,191 @@ async function consent(page) {
     await p.goto(`${BASE}/community`);
     check("community seed posts contain no emoji", !/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(await p.locator("main").innerText()));
     await c.close();
+  }
+  {
+    // I-1: every quick-button plan, and random plans, give one consistent answer in the ticket, review, journal and missions
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+    await c.addInitScript(() => { window.__VANTAGE_TEST__ = true; });
+    const p = await c.newPage();
+    watch(p, "rr-cents");
+    await p.goto(`${BASE}/markets/NVDA`);
+    await p.locator("#stop").waitFor();
+    await p.waitForFunction(() => !!window.__vantageTest?.modules);
+    const rows = [];
+    for (const px of [190.4, 151.07, 77.77, 412.31]) {
+      await p.evaluate((v) => window.__vantageTest.setPrices({ NVDA: v }), px);
+      await p.waitForTimeout(200);
+      for (const sp of ["−3%", "−5%", "−8%"]) {
+        for (const tp of ["+6%", "+10%", "+16%"]) {
+          const r = await p.evaluate(async ([s, t]) => {
+            const btn = (txt) => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === txt);
+            const quoteText = () => document.querySelector('aside[aria-label="Order ticket"] h2 + span')?.textContent;
+            const before = quoteText();
+            btn(s).click();
+            btn(t).click();
+            await new Promise((res) => setTimeout(res, 80));
+            const stop = Number(document.querySelector("#stop").value);
+            const target = Number(document.querySelector("#target").value);
+            const ok = document.querySelector('[data-check-id="target"]')?.getAttribute("data-ok") === "true";
+            const shown = quoteText();
+            return { stop, target, ok, before, shown };
+          }, [sp, tp]);
+          const q = Number((r.shown ?? "").replace(/[$,]/g, ""));
+          const entry = Math.round(q * 1.0002 * 100) / 100;
+          const e = Math.round(entry * 100), risk = e - Math.round(r.stop * 100), reward = Math.round(r.target * 100) - e;
+          rows.push({ px, sp, tp, ok: r.ok, expected: risk > 0 && reward >= 2 * risk, diagonal: (sp === "−3%" && tp === "+6%") || (sp === "−5%" && tp === "+10%") || (sp === "−8%" && tp === "+16%"), same: r.before === r.shown });
+        }
+      }
+    }
+    const stable = rows.filter((r) => r.same);
+    check("every −3/−5/−8% × +6/+10/+16% plan: the ticket's target check matches exact cents", stable.length >= 30 && stable.every((r) => r.ok === r.expected), JSON.stringify(stable.filter((r) => r.ok !== r.expected).slice(0, 3)));
+    check("the 2:1 quick-button pairs always pass the target check", stable.filter((r) => r.diagonal).length >= 10 && stable.filter((r) => r.diagonal).every((r) => r.ok), JSON.stringify(stable.filter((r) => r.diagonal && !r.ok).slice(0, 3)));
+    // property check over 200 random triples: preflight, review, journal record and missions agree with exact cents
+    const prop = await p.evaluate(() => {
+      const { preflightChecks, analyzeTrade, tradeChecks, missionDone } = window.__vantageTest.modules;
+      const thesis = "I expect steady earnings to lift the shares because demand is strong, and I am wrong if they close below the low.";
+      let seed = 12345;
+      const rnd = () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
+      const bad = [];
+      let passes = 0;
+      for (let i = 0; i < 200; i++) {
+        const entry = Math.round((50 + rnd() * 950) * 100) / 100;
+        const stop = Math.round(entry * (1 - (0.01 + rnd() * 0.14)) * 100) / 100;
+        const target = Math.round(entry * (1 + (0.01 + rnd() * 0.3)) * 100) / 100;
+        const e = Math.round(entry * 100), risk = e - Math.round(stop * 100), reward = Math.round(target * 100) - e;
+        const expected = risk > 0 && reward > 0 && reward >= 2 * risk;
+        if (expected) passes++;
+        const qty = 1;
+        const pf = preflightChecks({ side: "buy", qty, entry, stopLoss: stop, takeProfit: target, thesis, equity: 100000 }).find((c) => c.id === "target");
+        const ctx = { equity: 100000, cash: 100000, positions: {}, prices: { NVDA: entry }, prevClose: { NVDA: entry }, recentTradeCount: 0 };
+        const a = analyzeTrade({ symbol: "NVDA", side: "buy", qty, price: entry, role: "entry", thesis, stopLoss: stop, takeProfit: target }, ctx);
+        const review = a.flags.some((f) => f.id === "rr-good");
+        const trade = { id: "x", symbol: "NVDA", side: "buy", qty, price: entry, role: "entry", thesis, stopLoss: stop, takeProfit: target, score: a.score, flags: a.flags, metrics: a.metrics, at: 0, orderId: "o", reviewStatus: "done" };
+        const journal = tradeChecks(trade).target === "done";
+        const mission = missionDone("rr-2", { trades: [trade], orders: [], positions: {}, chat: [], posts: [] });
+        const wording = !pf.ok && pf.fix && /^Set a target of \$([\d,.]+) or more$/.test(pf.fix) ? Number(pf.fix.match(/\$([\d,.]+)/)[1].replace(/,/g, "")) > target : pf.ok || !pf.fix?.startsWith("Set a target");
+        if (pf.ok !== expected || review !== expected || journal !== expected || mission !== expected || !wording) bad.push({ entry, stop, target, expected, pf: pf.ok, review, journal, mission, fix: pf.fix });
+      }
+      return { bad: bad.slice(0, 3), n: bad.length, passes };
+    });
+    check("200 random plans: ticket, review, journal and missions all agree with exact cents, and the fix text never asks for the target already set", prop.n === 0 && prop.passes > 20, JSON.stringify(prop));
+    // a real −5% / +10% trade: recorded ratio, journal tick and mission
+    await p.evaluate((v) => window.__vantageTest.setPrices({ NVDA: v }), 190.4);
+    await p.getByLabel(/Why are you making this trade/).fill("I expect the chip leader to keep winning orders because demand is strong, and I am wrong if it falls below the recent low.");
+    await p.getByRole("button", { name: "−5%" }).first().click();
+    await p.getByRole("button", { name: "+10%" }).first().click();
+    await p.getByRole("button", { name: "1% of account" }).click().catch(() => {});
+    await p.getByRole("button", { name: /^Buy \d+ NVDA$/ }).click();
+    await waitFor(async () => (await state(p)).trades.some((t) => t.thesis?.startsWith("I expect the chip leader") && t.takeProfit), 10000, 250);
+    await waitFor(async () => !!(await state(p)).missions["rr-2"], 8000, 250);
+    const st = await state(p);
+    const tr = st.trades.find((t) => t.thesis?.startsWith("I expect the chip leader"));
+    check("a −5% / +10% trade records a ratio of at least 2, ticks the target in the journal and completes the 2:1 mission", tr.metrics.rewardRisk >= 2 - 1e-9 && !!st.missions["rr-2"], `rr ${tr?.metrics.rewardRisk}`);
+    await c.close();
+  }
+  {
+    // I-2a: a full page load right after a trade must not lose the next confirmed order
+    let lost = 0;
+    const trials = 5;
+    for (let i = 0; i < trials; i++) {
+      const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+      const a = await c.newPage();
+      const b = await c.newPage();
+      watch(a, "lost-A");
+      watch(b, "lost-B");
+      await a.goto(`${BASE}/dashboard`);
+      await b.goto(`${BASE}/markets/AAPL`);
+      const n0 = (await state(b)).trades.length;
+      await b.getByRole("button", { name: /^Buy \d+ AAPL$/ }).click();
+      await waitFor(async () => (await state(b)).trades.length === n0 + 1, 5000, 20); // confirmed, then navigate at once
+      await b.goto(`${BASE}/markets/KO`, { waitUntil: "commit" });
+      const buyKo = b.getByRole("button", { name: /^Buy \d+ KO$/ });
+      await buyKo.click({ timeout: 15000 });
+      await b.getByText(/Bought \d+ KO/).waitFor({ timeout: 10000 }).catch(() => {});
+      await b.waitForTimeout(1500);
+      const sa = await state(a), sb = await state(b);
+      const syms = (st) => st.trades.slice(0, st.trades.length - n0).map((t) => t.symbol);
+      const stored = syms(sb);
+      if (!(sb.trades.length === n0 + 2 && stored.includes("AAPL") && stored.includes("KO") && sa.trades.length === n0 + 2)) lost++;
+      await c.close();
+    }
+    check(`reload right after a trade: no confirmed order is lost (${trials} trials)`, lost === 0, `${lost} lost`);
+  }
+  {
+    // I-2b: two tabs click Buy at the same moment, 10 trials: both orders are kept
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+    const a = await c.newPage();
+    const b = await c.newPage();
+    watch(a, "simul-A");
+    watch(b, "simul-B");
+    await a.goto(`${BASE}/markets/AAPL`);
+    await b.goto(`${BASE}/markets/KO`);
+    await a.locator("#qty").waitFor();
+    await b.locator("#qty").waitFor();
+    const n0 = (await state(a)).trades.length;
+    let wrong = 0;
+    for (let i = 1; i <= 10; i++) {
+      await a.locator("#qty").fill(String(i));
+      await b.locator("#qty").fill(String(i));
+      await Promise.all([a.getByRole("button", { name: /^Buy \d+ AAPL$/ }).click(), b.getByRole("button", { name: /^Buy \d+ KO$/ }).click()]);
+      await a.waitForTimeout(700);
+      const st = await state(a);
+      if (st.trades.length !== n0 + i * 2) wrong++;
+    }
+    await a.waitForTimeout(1500);
+    const fa = await state(a), fb = await state(b);
+    const held = (st) => (st.positions.AAPL?.qty ?? 0) + (st.positions.KO?.qty ?? 0);
+    check("two tabs buying at the same moment (10 trials): zero lost orders, both tabs agree", wrong === 0 && fa.trades.length === n0 + 20 && fb.trades.length === n0 + 20 && held(fa) === held(fb), `A ${fa.trades.length - n0}, B ${fb.trades.length - n0}, wrong rounds ${wrong}`);
+    await waitFor(async () => (await state(a)).trades.slice(0, 20).every((t) => t.reviewStatus === "done"), 20000, 500);
+    check("two tabs: every one of the 20 trades gets its review exactly once (none left pending)", (await state(a)).trades.slice(0, 20).every((t) => t.reviewStatus === "done" && !!t.review));
+    await c.close();
+  }
+  {
+    // I-3: no HTML-entity residue or doubled words in the visible text of any page
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: storageNow });
+    const p = await c.newPage();
+    watch(p, "entities");
+    const routes = ["/", ...ROUTES.filter((r) => r !== "/")];
+    const bad = [];
+    for (const r of routes) {
+      await p.goto(`${BASE}${r}`);
+      await p.waitForTimeout(600);
+      const txt = await p.evaluate(() => document.body.innerText);
+      const ent = txt.match(/&apos;|apos;|&amp;|&quot;|quot;|&lt;|&gt;|&#\d+;/);
+      // doubled words inside one text block (a tag followed by text, such as "Simulated" + "Simulated prices", is two blocks)
+      const dbl = await p.evaluate(() => {
+        for (const el of document.querySelectorAll("p, li, h1, h2, h3, h4, td, dd, dt, label, summary")) {
+          if (el.querySelector("p, li, h1, h2, h3, ul, ol, td")) continue;
+          const m = el.innerText.match(/\b([A-Za-z]{3,})\s+\1\b/i);
+          if (m && m[1] !== m[1].toUpperCase()) return m; // repeated tickers (AMD AMD) are symbol plus name
+        }
+        return null;
+      });
+      if (ent) bad.push(`${r}: entity ${ent[0]}`);
+      if (dbl && !/^(had|that|very)$/i.test(dbl[1])) bad.push(`${r}: doubled "${dbl[0].replace(/\s+/g, " ")}"`);
+    }
+    check(`no entity residue ("&apos;", "apos;", "&amp;") or doubled words on ${routes.length} pages`, bad.length === 0, bad.slice(0, 4).join(" | "));
+    await c.close();
+  }
+  {
+    // I-4: the journal check record fits on phones: every header and label is inside the viewport
+    for (const w of [360, 390]) {
+      const c = await browser.newContext({ ...devices["iPhone 14"], viewport: { width: w, height: 800 }, storageState: storageNow });
+      const p = await c.newPage();
+      watch(p, `journal-${w}`);
+      await p.goto(`${BASE}/journal`);
+      await p.getByTestId("record-phone").waitFor({ timeout: 10000 });
+      const r = await p.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const vis = (el) => el.offsetParent !== null || getComputedStyle(el).position === "fixed";
+        const root = document.querySelector('[data-testid="record-phone"]');
+        const labels = ["Reason", "Stop", "Risk", "Target", "Size"].map((l) => [...root.querySelectorAll("span")].filter((s) => s.textContent.trim() === l && vis(s)).map((s) => Math.round(s.getBoundingClientRect().right)));
+        const heads = [...document.querySelectorAll("th")].filter(vis).map((th) => Math.round(th.getBoundingClientRect().right));
+        return { vw, labels, heads, scrollW: document.documentElement.scrollWidth };
+      });
+      check(`journal at ${w}px: Reason, Stop, Risk, Target and Size are all inside the screen, with no sideways scrolling`, r.labels.every((l) => l.length > 0 && l.every((x) => x <= r.vw)) && r.heads.every((x) => x <= r.vw) && r.scrollW <= r.vw + 1, JSON.stringify(r));
+      await c.close();
+    }
   }
   {
     // settings: export, theme, reset, delete

@@ -57,7 +57,7 @@ function ThemeToggle({ className }: { className?: string }) {
   const { theme, toggle } = useTheme();
   const next = theme === "dark" ? "light" : "dark";
   return (
-    <button onClick={toggle} className={cn("inline-flex min-h-10 items-center rounded-md px-1 text-ink-2 underline decoration-rule-strong underline-offset-4 hover:text-ink", className)} aria-label={`Switch to ${next} theme`}>
+    <button onClick={toggle} className={cn("inline-flex min-h-10 items-center rounded-md px-1 text-ink-2 underline decoration-rule-strong underline-offset-4 hover:text-ink", className)} aria-label={`${theme === "dark" ? "Dark theme" : "Light theme"}. Switch to ${next} theme`}>
       {theme === "dark" ? "Dark theme" : "Light theme"}
     </button>
   );
@@ -192,6 +192,11 @@ function TickerSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: () 
         aria-label="Search stocks"
       />
       <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 t-micro text-muted lg:block">⌘K</kbd>
+      {open && q.trim() && results.length === 0 && (
+        <div className="float absolute left-0 right-0 top-12 z-40 px-3 py-3 t-small text-ink-2" role="status">
+          No match for &ldquo;{q.trim()}&rdquo;. Try a symbol like NVDA or a name like Apple.
+        </div>
+      )}
       {open && results.length > 0 && (
         <div className="float absolute left-0 right-0 top-12 z-40 overflow-hidden py-1">
           {results.map((t) => (

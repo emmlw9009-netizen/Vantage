@@ -14,6 +14,7 @@ export const LEGAL = {
   refundPolicy: "[refund policy]",
   arbitrationProvider: "[arbitration provider, for example AAA or JAMS]",
   logRetention: "[log retention period]",
+  euRepresentative: "[EU/UK representative and DPO details, if required]",
   /** Date the current legal texts take effect. */
   effectiveDate: "November 24, 2026",
   /** Bump when Terms or Privacy change materially: every user is asked to agree again. */

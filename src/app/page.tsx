@@ -138,7 +138,7 @@ export default function Landing() {
             <h2 id="checks-h" className="t-h2 lg:text-[36px] lg:leading-[40px]">
               Every trade gets the same five checks
             </h2>
-            <p className="mt-3 max-w-[60ch] t-lead">They&apos;re the habits that separate people who improve from people who quit. Nova ticks each one in blue pencil, or tells you whattells you exactly what&apos;s missingapos;s missing.</p>
+            <p className="mt-3 max-w-[60ch] t-lead">They&apos;re the habits that separate people who improve from people who quit. Nova ticks each one in blue pencil, or tells you what&apos;s missing.</p>
             <ul className="mt-10 grid grid-cols-1 border-t border-rule-strong sm:grid-cols-2 lg:grid-cols-5">
               {CHECKS.map((c) => (
                 <li key={c.name} className="flex gap-4 border-b border-rule py-5 pr-6 lg:flex-col lg:gap-3 lg:border-b-0 lg:border-r lg:pl-5 lg:first:pl-0 lg:last:border-r-0">

@@ -1,4 +1,5 @@
 import { usd } from "./format";
+import { atMost, meetsRewardRisk, minTarget, rewardRiskOf, toCents } from "./money";
 
 export type PreflightId = "reason" | "stop" | "risk" | "target" | "size";
 
@@ -28,9 +29,9 @@ export function preflightChecks(i: PreflightInput): PreflightCheck[] {
   const equity = Math.max(1, i.equity);
   const qty = Math.max(0, Math.floor(i.qty));
   const stopOk = buy && !!i.stopLoss && i.stopLoss > 0 && i.stopLoss < i.entry;
-  const perShare = stopOk ? i.entry - (i.stopLoss as number) : 0;
+  const perShare = stopOk ? (toCents(i.entry) - toCents(i.stopLoss as number)) / 100 : 0;
   const riskPct = stopOk ? (perShare * qty) / equity : undefined;
-  const targetOk = stopOk && !!i.takeProfit && i.takeProfit > i.entry && (i.takeProfit - i.entry) / perShare >= 2;
+  const targetOk = stopOk && !!i.takeProfit && i.takeProfit > i.entry && meetsRewardRisk(rewardRiskOf(i.entry, i.stopLoss, i.takeProfit));
   const positionPct = ((i.existingQty ?? 0) + qty) * i.entry / equity;
   const thesisLen = [...(i.thesis ?? "").trim()].length; // code points, so one emoji counts once
 
@@ -56,22 +57,22 @@ export function preflightChecks(i: PreflightInput): PreflightCheck[] {
       id: "risk",
       label: "Risk under 2% of account",
       applicable: buy,
-      ok: riskPct != null && riskPct <= 0.02,
-      fix: riskPct == null ? "Set a stop-loss first" : riskPct <= 0.02 ? undefined : maxByRisk < 1 ? "Even 1 share risks over 2%. Move the stop closer." : `Cut to ${maxByRisk} ${maxByRisk === 1 ? "share" : "shares"} to risk 2%`,
+      ok: riskPct != null && atMost(riskPct, 0.02),
+      fix: riskPct == null ? "Set a stop-loss first" : atMost(riskPct, 0.02) ? undefined : maxByRisk < 1 ? "Even 1 share risks over 2%. Move the stop closer." : `Cut to ${maxByRisk} ${maxByRisk === 1 ? "share" : "shares"} to risk 2%`,
     },
     {
       id: "target",
       label: "Target at least 2× the risk",
       applicable: buy,
       ok: targetOk,
-      fix: targetOk ? undefined : !stopOk ? "Set a stop-loss first" : `Set a target above ${usd(i.entry + 2 * perShare)}`,
+      fix: targetOk ? undefined : !stopOk ? "Set a stop-loss first" : `Set a target of ${usd(minTarget(i.entry, i.stopLoss as number))} or more`,
     },
     {
       id: "size",
       label: "Position under 25% of account",
       applicable: true,
-      ok: !buy || positionPct <= 0.25,
-      fix: !buy || positionPct <= 0.25 ? undefined : maxBySize < 1 ? "This position is already over 25%. Don't add more." : `Cut to ${maxBySize} ${maxBySize === 1 ? "share" : "shares"} to stay under 25%`,
+      ok: !buy || atMost(positionPct, 0.25),
+      fix: !buy || atMost(positionPct, 0.25) ? undefined : maxBySize < 1 ? "This position is already over 25%. Don't add more." : `Cut to ${maxBySize} ${maxBySize === 1 ? "share" : "shares"} to stay under 25%`,
     },
   ];
 }

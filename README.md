@@ -52,5 +52,6 @@ Every remaining placeholder, all in `src/lib/legal.ts` (the legal pages show the
 | `refundPolicy` | `[refund policy]` | Terms |
 | `arbitrationProvider` | `[arbitration provider, for example AAA or JAMS]` | Terms |
 | `logRetention` | `[log retention period]` | Privacy |
+| `euRepresentative` | `[EU/UK representative and DPO details, if required]` | Privacy |
 
 Also: have counsel review the legal pages, register the DMCA agent, set rate limits and a spend cap on the AI key, and decide the owner and counsel items listed in `.superpowers/sdd/2026-11-24-preflight-overhaul/qa-r2-legal.md`.

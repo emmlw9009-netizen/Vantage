@@ -12,6 +12,8 @@ import { CheckCell, CheckStrip, ScoreLoop, MarkGlyph } from "./marks";
 import { AnimatedNumber } from "./motion/animated-number";
 import { Reveal } from "./motion/transition-panel";
 import type { CheckId, CheckState } from "@/lib/trade-checks";
+import { ceilCent } from "@/lib/money";
+import { withWriteLock } from "@/store/sync";
 
 /** Risk budget used by the "size by risk" buttons: slightly under the chosen percent so slippage and a tick of drift stay within it. */
 const RISK_BUDGET = 0.98;
@@ -145,7 +147,7 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
     setQty(v);
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (busy.current || !touched) return;
     // a double click (or Enter twice) repeats the exact order that was just placed: ignore it, but allow edits and new orders
     const sig = `${side}|${type}|${q}|${trigger}`;
@@ -153,7 +155,7 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
     busy.current = true;
     setError(null);
     setOkMsg(null);
-    const res = placeOrder({
+    const res = await withWriteLock(() => placeOrder({
       symbol,
       side,
       type,
@@ -163,7 +165,7 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
       thesis,
       stopLoss: buy ? stopN : undefined,
       takeProfit: buy ? targetN : undefined,
-    });
+    }));
     if (!res.ok) {
       busy.current = false;
       return setError(res.error ?? "The order wasn't placed. Check the fields above and try again.");
@@ -259,7 +261,7 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
             <div className="flex gap-1.5">
               <input id="stop" inputMode="decimal" autoComplete="off" placeholder="e.g. −5%" value={stop} onChange={(e) => setStop(e.target.value)} aria-invalid={!!stopP.error} className="field tnum min-w-0 flex-1" maxLength={12} />
               {[0.03, 0.05, 0.08].map((p) => (
-                <button key={p} onClick={() => setStop((entry * (1 - p)).toFixed(2))} className={quick}>
+                <button key={p} onClick={() => setStop(ceilCent(entry * (1 - p)).toFixed(2))} className={quick}>
                   −{p * 100}%
                 </button>
               ))}
@@ -317,7 +319,7 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
             <div className="flex gap-1.5">
               <input id="target" inputMode="decimal" autoComplete="off" placeholder="e.g. +10%" value={target} onChange={(e) => setTarget(e.target.value)} aria-invalid={!!targetP.error} className="field tnum min-w-0 flex-1" maxLength={12} />
               {[0.06, 0.1, 0.16].map((p) => (
-                <button key={p} onClick={() => setTarget((entry * (1 + p)).toFixed(2))} className={quick}>
+                <button key={p} onClick={() => setTarget(ceilCent(entry * (1 + p)).toFixed(2))} className={quick}>
                   +{p * 100}%
                 </button>
               ))}

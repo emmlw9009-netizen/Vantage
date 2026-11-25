@@ -7,7 +7,7 @@ import { uid, usd } from "@/lib/format";
 import { expectedFill, marketFillPrice } from "@/lib/pricing";
 import { useMarket } from "./market";
 import { useToast } from "./toast";
-import { guardedStorage } from "./sync";
+import { guardActions, guardedStorage } from "./sync";
 
 export const STARTING_CASH = 100_000;
 
@@ -298,7 +298,7 @@ export const useApp = create<AppState>()(
         return trade.id;
       };
 
-      return {
+      const api: AppState = {
         profile: { name: "", handle: "", experience: "new", goal: "learn", onboarded: false },
         ...freshAccount(),
         watchlist: ["SPY", "AAPL", "NVDA", "MSFT", "TSLA"],
@@ -454,6 +454,8 @@ export const useApp = create<AppState>()(
 
         resetAccount: () => set({ ...freshAccount() }),
       };
+      // every action first catches up with other tabs, and is re-run if a write was refused
+      return guardActions("sp-app", api);
     },
     {
       name: "sp-app",

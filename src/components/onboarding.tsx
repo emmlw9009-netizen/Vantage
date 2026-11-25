@@ -44,7 +44,7 @@ export function Onboarding() {
           <>
             <h2 className="t-h2">Welcome to {BRAND.name}. You have $100,000 in practice money.</h2>
             <p className="t-note mt-2 text-ink">I&apos;m Nova, your AI coach. I check every trade you place and point you to the lesson that helps. What should I call you?</p>
-            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && agreed && setStep(1)} placeholder="Your first name" className="field mt-5" maxLength={40} />
+            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && agreed && setStep(1)} placeholder="Your first name" aria-label="First name" className="field mt-5" maxLength={40} />
             <div className="mt-4">
               <ConsentCheckbox checked={agreed} onChange={setAgreed} />
             </div>
