@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
+import { BrandLockup } from "@/components/brand";
 import { LEGAL_PAGES } from "@/lib/legal";
 import { COURSE } from "@/lib/course";
 import { BOX, LOOP_D, TICK_D } from "@/lib/marks-geometry";
@@ -41,8 +42,8 @@ export default function Landing() {
     <div className="min-h-dvh">
       <header className="border-b border-rule">
         <div className="mx-auto flex h-14 max-w-[1264px] items-center justify-between gap-3 px-4 lg:px-8">
-          <Link href="/" className="inline-flex min-h-10 items-center rounded-md">
-            <span className="t-xwide text-[19px] font-semibold leading-none tracking-[-0.01em] lg:text-[21px]">{BRAND.name}</span>
+          <Link href="/" aria-label={`${BRAND.name} home`} className="inline-flex min-h-10 items-center rounded-md">
+            <BrandLockup />
           </Link>
           <nav aria-label="Site" className="flex items-center gap-1">
             <Link href="/learn" className="hidden min-h-10 items-center px-3 text-[15px] font-medium text-ink-2 hover:text-ink sm:inline-flex">
@@ -239,7 +240,7 @@ export default function Landing() {
 
       <footer className="border-t border-rule">
         <div className="mx-auto max-w-[1264px] px-4 py-10 lg:px-8">
-          <span className="t-xwide text-[19px] font-semibold">{BRAND.name}</span>
+          <BrandLockup size="lg" />
           <p className="mt-3 max-w-[72ch] t-small text-ink-2">{BRAND.name} is an educational simulator. No real money, no real trades. Prices and news are generated. Not investment advice. Not affiliated with or endorsed by any company named.</p>
           <ul className="mt-3 flex flex-wrap gap-x-5" aria-label="Legal">
             {LEGAL_PAGES.map((l) => (

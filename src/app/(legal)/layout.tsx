@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
+import { BrandLockup } from "@/components/brand";
 import { FOOTER_DISCLAIMER } from "@/lib/legal";
 import { LegalNav } from "@/components/legal-nav";
 
@@ -9,8 +10,8 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
     <div className="min-h-dvh">
       <header className="border-b border-rule">
         <div className="mx-auto flex h-14 max-w-[1264px] items-center justify-between gap-3 px-4 lg:px-8">
-          <Link href="/" className="inline-flex min-h-10 items-center rounded-md">
-            <span className="t-xwide text-[19px] font-semibold leading-none tracking-[-0.01em] lg:text-[21px]">{BRAND.name}</span>
+          <Link href="/" aria-label={`${BRAND.name} home`} className="inline-flex min-h-10 items-center rounded-md">
+            <BrandLockup />
           </Link>
           <Link href="/dashboard" className="btn btn-secondary">
             Open the app

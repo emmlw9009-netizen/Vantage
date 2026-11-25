@@ -1108,6 +1108,37 @@ async function consent(page) {
     await c.close();
   }
   {
+    // brand: favicon, app icons, manifest, default Open Graph image, and the logo in every header
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const p = await c.newPage();
+    watch(p, "brand");
+    await p.goto(`${BASE}/`);
+    const get = async (u) => {
+      const r = await fetch(new URL(u, BASE));
+      return { ok: r.status === 200, type: r.headers.get("content-type") || "", r };
+    };
+    const icon = (await p.locator('link[rel="icon"][type="image/svg+xml"]').getAttribute("href")) || "";
+    const apple = (await p.locator('link[rel="apple-touch-icon"]').first().getAttribute("href")) || "";
+    const og = (await p.locator('meta[property="og:image"]').first().getAttribute("content")) || "";
+    const tw = (await p.locator('meta[name="twitter:card"]').getAttribute("content")) || "";
+    const fi = await get(icon);
+    const ap = await get(apple);
+    const ogr = await get(og);
+    check("favicon is the brand SVG and loads", icon.includes("/brand/favicon.svg") && fi.ok && fi.type.includes("svg"), icon);
+    check("apple touch icon is the 180px brand PNG and loads", apple.includes("/brand/apple-touch-icon.png") && ap.ok && ap.type.includes("png"), apple);
+    check("default Open Graph image is the brand card (1200x630) and loads", og.endsWith("/brand/og.png") && ogr.ok && ogr.type.includes("png") && tw === "summary_large_image", og);
+    const manifestHref = (await p.locator('link[rel="manifest"]').getAttribute("href")) || "/manifest.webmanifest";
+    const man = await (await fetch(new URL(manifestHref, BASE))).json();
+    const iconsLoad = await Promise.all((man.icons || []).map(async (i) => (await fetch(new URL(i.src, BASE))).status === 200));
+    check("web manifest lists 192 and 512 brand icons that load", man.icons?.some((i) => i.sizes === "192x192") && man.icons?.some((i) => i.sizes === "512x512") && iconsLoad.length > 0 && iconsLoad.every(Boolean));
+    check("landing header shows the logo (monogram + name)", (await p.getByRole("link", { name: "Vantage home" }).first().locator("svg").count()) === 1);
+    await p.goto(`${BASE}/terms`);
+    check("legal header shows the logo", (await p.getByRole("link", { name: "Vantage home" }).locator("svg").count()) === 1);
+    await p.goto(`${BASE}/dashboard`);
+    check("app shell header shows the logo", (await p.locator('header a[aria-label="Vantage home"] svg').count()) === 1);
+    await c.close();
+  }
+  {
     // citations
     const c = await browser.newContext({ viewport: { width: 1440, height: 1000 }, storageState: storageNow });
     const p = await c.newPage();

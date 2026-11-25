@@ -16,6 +16,7 @@ import { ConsentGate } from "./consent";
 import { AiNotice } from "./ai-notice";
 import { Dialog } from "./dialog";
 import { MotionProvider } from "./motion/provider";
+import { BrandLockup } from "./brand";
 import { FOOTER_DISCLAIMER } from "@/lib/legal";
 
 const NAV = [
@@ -30,8 +31,8 @@ const NAV = [
 /** The wordmark. No logo mark: the name, set wide. */
 export function Logo({ className }: { className?: string }) {
   return (
-    <Link href="/" className={cn("inline-flex min-h-10 shrink-0 items-center rounded-md", className)}>
-      <span className="t-xwide text-[19px] font-semibold leading-none tracking-[-0.01em] lg:text-[21px]">{BRAND.name}</span>
+    <Link href="/" aria-label={`${BRAND.name} home`} className={cn("inline-flex min-h-10 shrink-0 items-center rounded-md", className)}>
+      <BrandLockup compactBelow360 />
     </Link>
   );
 }
