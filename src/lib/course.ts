@@ -38,6 +38,9 @@ export interface QuizQ {
   why: string;
 }
 
+/** Interactive widget rendered after a lesson's sections (src/components/lesson-widgets.tsx). */
+export type WidgetId = "position-size" | "reward-risk" | "trend-spotter";
+
 export interface Lesson {
   slug: string;
   title: string;
@@ -48,6 +51,7 @@ export interface Lesson {
   callout?: { title: string; body: string };
   quiz: QuizQ[];
   mission?: MissionId;
+  widget?: WidgetId;
   /** Citations for statistics or research the lesson mentions. Rendered as a "Sources" line. */
   sources?: { label: string; url: string }[];
 }
@@ -159,6 +163,7 @@ export const COURSE: Module[] = [
     lessons: [
       {
         slug: "position-sizing",
+        widget: "position-size",
         title: "Position sizing: the 1–2% rule",
         minutes: 6,
         summary: "How much to buy matters more than what you buy.",
@@ -216,6 +221,7 @@ export const COURSE: Module[] = [
       },
       {
         slug: "risk-reward",
+        widget: "reward-risk",
         title: "Reward-to-risk",
         minutes: 4,
         summary: "Why you can be wrong most of the time and still win.",
@@ -271,6 +277,7 @@ export const COURSE: Module[] = [
     lessons: [
       {
         slug: "trends-and-candles",
+        widget: "trend-spotter",
         title: "Trends: higher highs, higher lows",
         minutes: 4,
         summary: "The simplest and most useful thing a chart can tell you.",

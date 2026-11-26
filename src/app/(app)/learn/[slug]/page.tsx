@@ -8,6 +8,7 @@ import { useApp } from "@/store/app";
 import { useToast } from "@/store/toast";
 import { cn } from "@/lib/format";
 import { CheckCell, MarkGlyph } from "@/components/marks";
+import { LessonWidget } from "@/components/lesson-widgets";
 
 export default function LessonPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -48,7 +49,7 @@ export default function LessonPage() {
 
   return (
     <article className="max-w-[760px]">
-      <Link href="/learn" className="link t-small text-ink-2">
+      <Link href="/learn" className="link -my-3 inline-block py-3 t-small text-ink-2">
         Course
       </Link>
       <span className="t-small text-ink-2"> / {mod.title}</span>
@@ -88,6 +89,8 @@ export default function LessonPage() {
           <p className="tnum mt-1 t-wide text-[17px] leading-7">{lesson.callout.body}</p>
         </div>
       )}
+
+      {lesson.widget && <LessonWidget kind={lesson.widget} />}
 
       <section className="mt-10" aria-labelledby="remember-h">
         <h2 id="remember-h" className="t-h3">
@@ -174,6 +177,9 @@ export default function LessonPage() {
             </fieldset>
           ))}
         </div>
+        <p className="sr-only" role="status">
+          {submitted ? `${correct} of ${lesson.quiz.length} correct.` : ""}
+        </p>
         {!submitted ? (
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <button disabled={!allAnswered} onClick={submit} className="btn btn-primary">
