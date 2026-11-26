@@ -1,5 +1,6 @@
 "use client";
 
+import { track } from "@/lib/track";
 import { useRef, useState } from "react";
 import { useApp, Profile } from "@/store/app";
 import { cn } from "@/lib/format";
@@ -30,6 +31,7 @@ export function Onboarding() {
     if (!agreed) return; // consent is never skipped
     const clean = name.trim() || "Trader";
     setProfile({ name: clean, handle: clean.toLowerCase().replace(/[^a-z0-9]+/g, ""), experience: exp, goal, onboarded: true, consent: consentRecord() });
+    track("CompleteRegistration");
   };
 
   return (

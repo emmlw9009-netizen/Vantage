@@ -9,6 +9,9 @@ import { LESSON_MAP } from "@/lib/course";
 import { cn, timeAgo, usd } from "@/lib/format";
 import { tradeChecks } from "@/lib/trade-checks";
 import { Delta } from "./ui";
+import { track } from "@/lib/track";
+import { useToast } from "@/store/toast";
+import { shareScorePath } from "@/lib/share-score";
 import { CheckStrip, MARK_WORD, MarkGlyph, NovaByline, ScoreLoop } from "./marks";
 
 const ROLE_WORD: Record<string, string> = { "stop-loss": "Stop-loss exit", "take-profit": "Take-profit exit" };
@@ -49,6 +52,26 @@ export function ReviewCard({ trade, compact = false, headingLevel = "h3" }: { tr
       tradeId: trade.id,
     });
     setShared(true);
+  };
+
+  const push = useToast((s) => s.push);
+  const shareScore = async () => {
+    const url = `${location.origin}${shareScorePath({ score: trade.score, label: scoreLabel(trade.score), symbol: trade.symbol, side: trade.side })}`;
+    track("ShareScore", { score: trade.score, label: scoreLabel(trade.score), symbol: trade.symbol, side: trade.side });
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share({ title: "My Vantage process score", text: "Simulated trade. Educational only, not investment advice.", url });
+        return;
+      }
+    } catch (e) {
+      if ((e as Error)?.name === "AbortError") return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      push({ title: "Link copied", body: "Paste it anywhere to share your score card.", tone: "good" });
+    } catch {
+      push({ title: "Couldn't copy the link", body: url, tone: "warn" });
+    }
   };
 
   const flags = [...trade.flags].sort((a, b) => ORDER[a.tone] - ORDER[b.tone]);
@@ -129,6 +152,9 @@ export function ReviewCard({ trade, compact = false, headingLevel = "h3" }: { tr
         </Link>
         <button onClick={share} disabled={shared} className="btn btn-secondary">
           {shared ? "Shared to community" : "Share to community"}
+        </button>
+        <button onClick={shareScore} className="btn btn-secondary">
+          Share score
         </button>
       </div>
     </article>

@@ -108,6 +108,8 @@ export interface Profile {
   consent?: { version: string; acceptedAt: string };
   /** ISO time the user saw the AI data notice (only shown when the AI coach is on). */
   aiNoticeAt?: string;
+  /** Invite code from a ?ref= link, stored once. No rewards yet. */
+  referredBy?: string;
 }
 
 interface AppState {

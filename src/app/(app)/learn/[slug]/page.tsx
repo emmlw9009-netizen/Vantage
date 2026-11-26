@@ -8,6 +8,7 @@ import { useApp } from "@/store/app";
 import { useToast } from "@/store/toast";
 import { cn } from "@/lib/format";
 import { CheckCell, MarkGlyph } from "@/components/marks";
+import { track } from "@/lib/track";
 import { LessonWidget } from "@/components/lesson-widgets";
 
 export default function LessonPage() {
@@ -43,6 +44,7 @@ export default function LessonPage() {
     const score = correct / lesson.quiz.length;
     const first = !completed;
     completeLesson(slug, score);
+    if (first) track("LessonComplete", { lesson: slug });
     const bonus = score === 1 && (completed?.quiz ?? 0) < 1;
     push({ title: score === 1 ? "Perfect quiz" : "Lesson complete", body: first ? `${50 + (bonus ? 25 : 0)} XP added.` : bonus ? "25 XP quiz bonus added." : "Progress saved.", tone: "good" });
   };

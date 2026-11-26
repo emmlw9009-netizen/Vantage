@@ -41,11 +41,22 @@ const btn = "btn btn-secondary";
 
 export default function SettingsPage() {
   const consent = useApp((s) => s.profile.consent);
+  const handle = useApp((s) => s.profile.handle);
   const resetAccount = useApp((s) => s.resetAccount);
   const push = useToast((s) => s.push);
   const [theme, setTheme] = useTheme();
   const [dialog, setDialog] = useState<null | "delete" | "reset">(null);
   const [typed, setTyped] = useState("");
+
+  const copyInvite = async () => {
+    const url = `${location.origin}/?ref=${encodeURIComponent(handle)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      push({ title: "Invite link copied", tone: "good" });
+    } catch {
+      push({ title: "Couldn't copy the link", body: url, tone: "warn" });
+    }
+  };
 
   const close = () => {
     setDialog(null);
@@ -64,6 +75,23 @@ export default function SettingsPage() {
           </div>
         </div>
       </section>
+
+      {handle && (
+        <section className="mt-10 divide-y divide-rule border-t border-rule-strong" aria-labelledby="invite-h">
+          <div className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <div className="min-w-0 max-w-md">
+              <h2 id="invite-h" className="t-h2">Your invite link</h2>
+              <p className="mt-0.5 break-all text-sm text-ink-2" data-testid="invite-link">
+                /?ref={handle}
+              </p>
+              <p className="mt-1 text-sm text-ink-2">Share it with a friend who wants to practice. It only tells us which link they used.</p>
+            </div>
+            <button onClick={copyInvite} className={btn}>
+              Copy invite link
+            </button>
+          </div>
+        </section>
+      )}
 
       <section className="mt-10 divide-y divide-rule border-t border-rule-strong" aria-labelledby="data-h">
         <div className="py-4">

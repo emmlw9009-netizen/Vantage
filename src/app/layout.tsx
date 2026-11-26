@@ -3,6 +3,7 @@ import "@fontsource-variable/archivo/wdth.css";
 import "@fontsource-variable/literata/opsz.css";
 import "@fontsource-variable/literata/opsz-italic.css";
 import { BRAND } from "@/lib/brand";
+import { CookieConsent } from "@/components/cookie-consent";
 import "./globals.css";
 
 const DESCRIPTION = "Practice investing in a simulated market with $100,000 in practice money. Nova, an AI coach, checks every trade. Educational only, not investment advice.";
@@ -50,7 +51,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-dvh antialiased">{children}</body>
+      <body className="min-h-dvh antialiased">
+        {children}
+        <CookieConsent />
+      </body>
     </html>
   );
 }

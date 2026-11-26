@@ -1,5 +1,6 @@
 "use client";
 
+import { track } from "@/lib/track";
 import { useId, useMemo, useRef, useState } from "react";
 import { useApp, equityOf, OrderType } from "@/store/app";
 import { useMarket } from "@/store/market";
@@ -159,6 +160,9 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
     busy.current = true;
     setError(null);
     setOkMsg(null);
+    const before = useApp.getState();
+    const hadTrade = before.trades.length > 0;
+    const hadStopBuy = !!before.missions["use-stop"];
     const res = await withWriteLock(() => placeOrder({
       symbol,
       side,
@@ -176,6 +180,8 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
     }
     lastFill.current = { at: Date.now(), sig };
     if (res.tradeId) {
+      if (buy && !hadTrade) track("FirstTrade", { symbol });
+      if (buy && stopN && !hadStopBuy) track("FirstTradeWithStopLoss", { symbol });
       setOkMsg(`${buy ? "Bought" : "Sold"} ${q} ${symbol}. Nova is reviewing it.`);
       onFilled?.(res.tradeId);
     } else setOkMsg(`${type === "limit" ? "Limit" : "Stop"} order placed. It fills when ${symbol} reaches ${usd(entry)}.`);
