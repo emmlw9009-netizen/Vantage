@@ -8,7 +8,7 @@ import { CHECKS, isAutoExit, tradeChecks } from "@/lib/trade-checks";
 import { LESSON_MAP } from "@/lib/course";
 import { pct, timeAgo, usd } from "@/lib/format";
 import { PriceChart } from "@/components/price-chart";
-import { Delta, Segmented, SectionTitle } from "@/components/ui";
+import { Delta, Segmented, SectionTitle, TabPanel } from "@/components/ui";
 import { CheckCell, CheckStrip, MarkGlyph, NovaByline, ScoreLoop } from "@/components/marks";
 import { EmptyLedger } from "@/components/empty-ledger";
 
@@ -212,7 +212,8 @@ export default function JournalPage() {
 
           <section aria-labelledby="history-h" className="mt-12 min-w-0">
             <SectionTitle id="history-h" title="Trade history" />
-            <Segmented kind="tabs" label="Filter trades" value={filter} onChange={setFilter} options={[{ value: "all", label: "All" }, { value: "buys", label: "Buys" }, { value: "sells", label: "Sells" }, { value: "auto", label: "Automatic exits" }]} />
+            <Segmented kind="tabs" idBase="history" label="Filter trades" value={filter} onChange={setFilter} options={[{ value: "all", label: "All" }, { value: "buys", label: "Buys" }, { value: "sells", label: "Sells" }, { value: "auto", label: "Automatic exits" }]} />
+            <TabPanel idBase="history" value={filter}>
             <ul className="mt-2">
               {history.map((t) => {
                 const c = tradeChecks(t);
@@ -234,6 +235,7 @@ export default function JournalPage() {
               })}
               {history.length === 0 && <li className="py-4 t-small text-ink-2">No trades of this kind yet.</li>}
             </ul>
+            </TabPanel>
           </section>
         </>
       )}

@@ -11,7 +11,7 @@ import { levelFor } from "@/lib/course";
 import { cn, pct, timeAgo } from "@/lib/format";
 import { aiGate } from "@/lib/ai-notice";
 import { useToast } from "@/store/toast";
-import { Avatar, Delta, Segmented, SectionTitle } from "@/components/ui";
+import { Avatar, Delta, Segmented, SectionTitle, TabPanel } from "@/components/ui";
 import { CheckCell, NovaByline, ScoreLoop } from "@/components/marks";
 
 type Tab = "feed" | "leaders" | "challenges";
@@ -53,16 +53,16 @@ export default function Community() {
     <div>
       <h1 className="t-title">Community</h1>
       <p className="mt-2 max-w-[72ch] t-lead">Share ideas and lessons. Ranked on process, not profit.</p>
-      <Segmented kind="tabs" label="Community sections" size="md" value={tab} onChange={setTab} options={[{ value: "feed", label: "Feed" }, { value: "leaders", label: "Leaderboard" }, { value: "challenges", label: "Challenges" }]} className="mt-6" />
+      <Segmented kind="tabs" idBase="community" label="Community sections" size="md" value={tab} onChange={setTab} options={[{ value: "feed", label: "Feed" }, { value: "leaders", label: "Leaderboard" }, { value: "challenges", label: "Challenges" }]} className="mt-6" />
       <p className="mt-4 flex flex-wrap items-baseline gap-2 t-small text-ink-2">
         <span className="tag">Demo</span>
         <span className="min-w-0 flex-1">Preview community. Members, posts, comments and leaderboard rows marked Demo are fictional sample content. Your posts are yours, and Nova&apos;s replies are marked AI-generated.</span>
       </p>
-      <div className="mt-8">
+      <TabPanel idBase="community" value={tab} className="mt-8">
         {tab === "feed" && <Feed />}
         {tab === "leaders" && <Leaderboard />}
         {tab === "challenges" && <Challenges />}
-      </div>
+      </TabPanel>
     </div>
   );
 }
@@ -170,7 +170,7 @@ function Feed() {
               </header>
               <p className="mt-3 whitespace-pre-line break-words text-[15px] leading-6 [overflow-wrap:anywhere]">{p.body}</p>
               <div className="mt-2 flex items-center gap-1 t-small text-ink-2">
-                <button onClick={() => toggleLike(p.id)} data-like className={cn("inline-flex min-h-10 w-14 items-center justify-start gap-2 rounded-md px-2 hover:bg-well", liked[p.id] && "text-ink")} aria-pressed={!!liked[p.id]} aria-label={liked[p.id] ? "Unlike" : "Like"}>
+                <button onClick={() => toggleLike(p.id)} data-like className={cn("inline-flex min-h-10 w-14 items-center justify-start gap-2 rounded-md px-2 hover:bg-well", liked[p.id] && "text-ink")} aria-pressed={!!liked[p.id]} aria-label="Like this post">
                   <CheckCell state={liked[p.id] ? "done" : "todo"} size={20} ink />
                   {(!p.demo || p.likeCount > 0) && (
                     <span className="tnum" data-like-count>

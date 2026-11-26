@@ -89,7 +89,7 @@ export function Toaster() {
   const reduce = useReducedMotion();
   const shown = toasts.slice(-2);
   return (
-    <div data-toaster className={`pointer-events-none fixed left-4 right-4 top-[64px] z-50 flex flex-col gap-2 sm:right-auto sm:w-[360px] lg:left-8 lg:top-auto ${lift ? "lg:bottom-[calc(var(--statusbar-h)+136px)]" : "lg:bottom-[calc(var(--statusbar-h)+16px)]"}`}>
+    <div data-toaster aria-live="polite" className={`pointer-events-none fixed left-4 right-4 top-[64px] z-50 flex flex-col gap-2 sm:right-auto sm:w-[360px] lg:left-8 lg:top-auto ${lift ? "lg:bottom-[calc(var(--statusbar-h)+136px)]" : "lg:bottom-[calc(var(--statusbar-h)+16px)]"}`}>
       <AnimatePresence initial={false}>
         {shown.map((t) => (
           <m.div
@@ -203,6 +203,7 @@ export function Segmented<T extends string>({
   size = "sm",
   stretch = false,
   className,
+  idBase,
 }: {
   value: T;
   options: { value: T; label: string }[];
@@ -213,8 +214,11 @@ export function Segmented<T extends string>({
   /** Equal-width options filling the row (e.g. Buy / Sell). */
   stretch?: boolean;
   className?: string;
+  /** kind="tabs": pass the same base to <TabPanel> so each tab has aria-controls and the panel is labelled by the active tab. */
+  idBase?: string;
 }) {
-  const gid = useId();
+  const autoId = useId();
+  const gid = idBase ?? autoId;
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const idx = Math.max(0, options.findIndex((o) => o.value === value));
   const onKey = (e: React.KeyboardEvent) => {
@@ -239,6 +243,7 @@ export function Segmented<T extends string>({
               role="tab"
               id={`${gid}-tab-${o.value}`}
               aria-selected={on}
+              aria-controls={idBase ? `${idBase}-panel` : undefined}
               tabIndex={on ? 0 : -1}
               onClick={() => onChange(o.value)}
               className={cn("relative min-h-11 shrink-0 px-3 t-small font-medium", size === "md" && "text-[15px]", on ? "text-ink" : "text-ink-2 hover:text-ink")}
@@ -272,6 +277,15 @@ export function Segmented<T extends string>({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/** The panel for a Segmented kind="tabs" with the same idBase. One panel swaps its content, labelled by the active tab. */
+export function TabPanel({ idBase, value, className, children }: { idBase: string; value: string; className?: string; children: React.ReactNode }) {
+  return (
+    <div role="tabpanel" id={`${idBase}-panel`} aria-labelledby={`${idBase}-tab-${value}`} tabIndex={0} className={className}>
+      {children}
     </div>
   );
 }

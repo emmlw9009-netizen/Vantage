@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { useApp, useEquity, STARTING_CASH } from "@/store/app";
 import { useMarket } from "@/store/market";
@@ -50,6 +51,7 @@ function useCoachBrief() {
 }
 
 export default function Dashboard() {
+  const router = useRouter();
   const profile = useApp((s) => s.profile);
   const cash = useApp((s) => s.cash);
   const positions = useApp((s) => s.positions);
@@ -209,9 +211,9 @@ export default function Dashboard() {
                   {pos.map((p) => {
                     const px = prices[p.symbol] ?? p.avgCost;
                     return (
-                      <tr key={p.symbol} className="border-b border-rule align-top hover:bg-well">
+                      <tr key={p.symbol} className="cursor-pointer border-b border-rule align-top hover:bg-well" onClick={(e) => { if (!(e.target as HTMLElement).closest("a,button")) router.push(`/markets/${p.symbol}`); }}>
                         <td className="py-3 pr-2">
-                          <Link href={`/markets/${p.symbol}`} className="font-semibold hover:underline">
+                          <Link href={`/markets/${p.symbol}`} className="-my-2 inline-block py-2 font-semibold hover:underline">
                             {p.symbol}
                           </Link>
                           <div className="truncate t-micro text-ink-2">{TICKER_MAP[p.symbol]?.name}</div>

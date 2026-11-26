@@ -318,9 +318,9 @@ export const useApp = create<AppState>()(
         placeOrder: (input) => {
           const s = get();
           const price = useMarket.getState().prices[input.symbol];
-          if (!price) return { ok: false, error: "No price available for that symbol." };
+          if (!price) return { ok: false, error: "There is no simulated price for that symbol. Pick a stock from Markets." };
           const qty = Math.floor(input.qty);
-          if (!Number.isFinite(qty) || qty <= 0) return { ok: false, error: "Enter a whole number of shares." };
+          if (!Number.isFinite(qty) || qty <= 0) return { ok: false, error: "Enter a whole number of shares, such as 10." };
           if (input.side === "buy") {
             // cash is checked at the price we would really pay: the slipped quote for market orders, the limit for limit orders
             const trigger = input.limitPrice;
@@ -334,7 +334,7 @@ export const useApp = create<AppState>()(
             const held = s.positions[input.symbol]?.qty ?? 0;
             if (qty > held) return { ok: false, error: held ? `You only hold ${held} shares.` : `You don't own any ${input.symbol}.` };
           }
-          if (input.type !== "market" && !(input.limitPrice || input.stopPrice)) return { ok: false, error: "Set a trigger price." };
+          if (input.type !== "market" && !(input.limitPrice || input.stopPrice)) return { ok: false, error: "Enter a trigger price. A limit or stop order waits for that price before it fills." };
 
           const order: Order = {
             id: uid(),
@@ -357,7 +357,7 @@ export const useApp = create<AppState>()(
             const tradeId = fill(order, marketFillPrice(order.side, price));
             if (!tradeId) {
               set((st) => ({ orders: st.orders.map((o) => (o.id === order.id ? { ...o, status: "cancelled" as const } : o)) }));
-              return { ok: false, error: "Order could not be filled." };
+              return { ok: false, error: "The order was not filled. Check your cash and shares, then try again." };
             }
             return { ok: true, tradeId, orderId: order.id };
           }

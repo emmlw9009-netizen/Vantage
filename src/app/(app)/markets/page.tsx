@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { TICKERS, Sector } from "@/lib/market-data";
 import { useMarket } from "@/store/market";
 import { useApp } from "@/store/app";
 import { Sparkline } from "@/components/price-chart";
-import { Delta, Segmented, SectionTitle } from "@/components/ui";
+import { Delta, Segmented, SectionTitle, TabPanel } from "@/components/ui";
 import { NewsFeed } from "@/components/news-feed";
 import { cn, usd } from "@/lib/format";
 
@@ -18,6 +19,7 @@ export default function Markets() {
   const intraday = useMarket((s) => s.intraday);
   const watchlist = useApp((s) => s.watchlist);
   const toggleWatch = useApp((s) => s.toggleWatch);
+  const router = useRouter();
   const [filter, setFilter] = useState<(typeof SECTORS)[number]>("All");
   const change = (sym: string) => (prices[sym] && prevClose[sym] ? prices[sym] / prevClose[sym] - 1 : 0);
   const list = TICKERS.filter((t) => (filter === "All" ? true : filter === "Watchlist" ? watchlist.includes(t.symbol) : t.sector === filter));
@@ -44,7 +46,8 @@ export default function Markets() {
 
       <div className="mt-8 grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0">
-          <Segmented kind="tabs" label="Filter by sector" value={filter} onChange={setFilter} options={SECTORS.map((s) => ({ value: s, label: s === "Index ETF" ? "Index ETFs" : s }))} />
+          <Segmented kind="tabs" idBase="sector" label="Filter by sector" value={filter} onChange={setFilter} options={SECTORS.map((s) => ({ value: s, label: s === "Index ETF" ? "Index ETFs" : s }))} />
+          <TabPanel idBase="sector" value={filter}>
           <table className="mt-2 w-full t-table">
             <caption className="sr-only">Stocks and ETFs, {filter === "All" ? "all sectors" : filter}</caption>
             <thead>
@@ -63,7 +66,7 @@ export default function Markets() {
               {list.map((t) => {
                 const on = watchlist.includes(t.symbol);
                 return (
-                  <tr key={t.symbol} className="border-b border-rule hover:bg-well">
+                  <tr key={t.symbol} className="cursor-pointer border-b border-rule hover:bg-well" onClick={(e) => { if (!(e.target as HTMLElement).closest("a,button")) router.push(`/markets/${t.symbol}`); }}>
                     <td className="max-w-0 py-2.5 pr-3 sm:max-w-none">
                       <Link href={`/markets/${t.symbol}`} className="block min-h-10 hover:underline">
                         <span className="block font-semibold text-[15px] t-wide">{t.symbol}</span>
@@ -90,6 +93,7 @@ export default function Markets() {
             </tbody>
           </table>
           {list.length === 0 && <p className="mt-4 t-small text-ink-2">Your watchlist is empty. Open a stock and press Watch to add it here.</p>}
+          </TabPanel>
         </div>
 
         <aside className="min-w-0 space-y-12">

@@ -195,7 +195,7 @@ function Stat({ k, v, lesson }: { k: string; v: string; lesson?: string }) {
     <div className="min-w-0">
       <dt className="t-micro text-ink-2">
         {lesson ? (
-          <Link href={`/learn/${lesson}`} className="link">
+          <Link href={`/learn/${lesson}`} className="link -my-3 inline-block py-3">
             {k}
           </Link>
         ) : (

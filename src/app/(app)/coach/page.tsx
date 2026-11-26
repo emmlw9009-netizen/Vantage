@@ -223,7 +223,7 @@ function Coach() {
               className="field max-h-40 min-h-11 flex-1 resize-none py-2.5 leading-6"
             />
             <button type="submit" disabled={!input.trim() || busy} className="btn btn-primary min-h-11">
-              Send
+              Send message
             </button>
           </div>
           <p className="mt-2 t-micro text-ink-2">

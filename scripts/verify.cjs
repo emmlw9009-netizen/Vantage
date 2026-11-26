@@ -51,11 +51,79 @@ const LEGAL_ROUTES = [
   ["/copyright", "Copyright and DMCA policy"],
   ["/accessibility", "Accessibility statement"],
 ];
-const ROUTES = ["/", "/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", "/learn", "/learn/position-sizing", "/coach", "/community", "/journal", "/settings", ...LEGAL_ROUTES.map((r) => r[0])];
+const ROUTES = ["/", "/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", "/learn", "/learn/position-sizing", "/learn/risk-reward", "/learn/trends-and-candles", "/coach", "/community", "/journal", "/settings", ...LEGAL_ROUTES.map((r) => r[0])];
 const TERMS_VERSION = "2026-11-24";
 /** Onboarding step 1 now requires the consent checkbox before Continue or Skip. */
 async function consent(page) {
   await page.getByLabel(/I.m 18 or older/).check();
+}
+
+/**
+ * Task 7 accessibility smoke test, run in the page. Returns a list of problems:
+ * every visible button, link, tab and radio has an accessible name; every input, textarea and select has a label;
+ * exactly one visible h1; no duplicate ids; no aria-controls, aria-labelledby or aria-describedby pointing nowhere;
+ * every tab controls a tabpanel.
+ */
+function a11ySmoke() {
+  const out = [];
+  const vis = (el) => {
+    const r = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none";
+  };
+  const text = (id) => document.getElementById(id)?.textContent || "";
+  const name = (el) => {
+    const lb = el.getAttribute("aria-labelledby");
+    if (lb) return lb.split(/\s+/).map(text).join(" ").trim();
+    const al = el.getAttribute("aria-label");
+    if (al && al.trim()) return al.trim();
+    if (el.labels && el.labels.length) return [...el.labels].map((l) => l.textContent).join(" ").trim();
+    const t = (el.textContent || "").trim();
+    if (t) return t;
+    const img = el.querySelector("img[alt]");
+    if (img && img.alt.trim()) return img.alt.trim();
+    return (el.getAttribute("title") || "").trim();
+  };
+  for (const el of document.querySelectorAll("button, a[href], [role=button], [role=link], [role=tab], [role=radio]")) {
+    if (vis(el) && !name(el)) out.push(`no accessible name: ${el.outerHTML.slice(0, 90)}`);
+  }
+  for (const el of document.querySelectorAll("input:not([type=hidden]), textarea, select")) {
+    if ((vis(el) || /sr-only/.test(el.className)) && !name(el)) out.push(`no label: ${el.outerHTML.slice(0, 90)}`);
+  }
+  const h1 = [...document.querySelectorAll("h1")].filter(vis).length;
+  if (h1 !== 1) out.push(`${h1} h1 elements`);
+  const ids = {};
+  for (const el of document.querySelectorAll("[id]")) ids[el.id] = (ids[el.id] || 0) + 1;
+  for (const [k, v] of Object.entries(ids)) if (v > 1) out.push(`duplicate id ${k} x${v}`);
+  for (const el of document.querySelectorAll("[aria-controls],[aria-labelledby],[aria-describedby]"))
+    for (const a of ["aria-controls", "aria-labelledby", "aria-describedby"])
+      for (const i of (el.getAttribute(a) || "").split(/\s+/).filter(Boolean)) if (!document.getElementById(i)) out.push(`${a}="${i}" points nowhere`);
+  for (const t of document.querySelectorAll("[role=tab]")) if (!t.getAttribute("aria-controls")) out.push(`tab "${t.textContent.trim()}" controls no panel`);
+  return out;
+}
+
+/** Contrast of every text token against every surface token, both themes, straight from globals.css. */
+function tokenContrast() {
+  const css = fs.readFileSync(path.join(__dirname, "../src/app/globals.css"), "utf8");
+  const grab = (start) => {
+    const i = css.indexOf(start);
+    return Object.fromEntries([...css.slice(i, css.indexOf("}", i)).matchAll(/--([a-z0-9-]+):\s*(#[0-9a-fA-F]{6})/g)].map((m) => [m[1], m[2]]));
+  };
+  const themes = { light: grab(":root {\n  color-scheme: light"), dark: grab(':root[data-theme="dark"] {') };
+  const lum = (h) => {
+    const f = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    const [r, g, b] = [1, 3, 5].map((i) => f(parseInt(h.slice(i, i + 2), 16) / 255));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+  const bad = [];
+  for (const [theme, t] of Object.entries(themes)) {
+    for (const fg of ["ink", "ink-2", "muted", "pencil", "red"]) for (const bg of ["paper", "sheet", "well", "field"]) if (ratio(t[fg], t[bg]) < 4.5) bad.push(`${theme} ${fg} on ${bg} ${ratio(t[fg], t[bg]).toFixed(2)}`);
+    if (ratio(t["on-ink"], t.ink) < 4.5) bad.push(`${theme} on-ink on ink`);
+    if (ratio(t["on-ink"], t.red) < 4.5) bad.push(`${theme} on-ink on red`);
+    for (const bg of ["paper", "sheet", "well", "field"]) if (ratio(t.edge, t[bg]) < 3) bad.push(`${theme} edge on ${bg} (non-text 3:1)`);
+  }
+  return bad;
 }
 
 (async () => {
@@ -206,6 +274,58 @@ async function consent(page) {
   await page.getByRole("button", { name: "Check answers" }).click();
   s = await state(page);
   check("lesson completion + perfect quiz awards 75 XP", s.completedLessons["position-sizing"]?.quiz === 1 && s.xp - xpBefore >= 75, `+${s.xp - xpBefore} XP`);
+
+  // lesson widgets (Task 4)
+  {
+    const w = page.getByTestId("widget-position-size");
+    check("position-size widget is on the position sizing lesson", await w.isVisible());
+    await w.getByLabel("Account size").fill("100000");
+    await w.getByLabel(/Risk per trade/).fill("1");
+    await w.getByLabel("Entry price").fill("100");
+    await w.getByLabel("Stop price").fill("95");
+    check("position-size widget: 100000 account, 1% risk, entry 100, stop 95 gives 200 shares", (await w.getByTestId("ps-shares").innerText()) === "200", await w.getByTestId("ps-shares").innerText());
+    check("position-size widget: dollars at risk are $1,000.00 and the position is 20.0% of the account", (await w.getByTestId("ps-risk-usd").innerText()) === "$1,000.00" && (await w.getByTestId("ps-pct").innerText()) === "20.0%");
+    await w.getByLabel("Stop price").fill("101");
+    check("position-size widget: a stop above the entry explains the fix", (await w.locator("[aria-invalid=true]").count()) === 1 && /below your entry/.test(await w.innerText()));
+    await w.getByLabel("Stop price").fill("95");
+
+    await page.goto(`${BASE}/learn/risk-reward`);
+    const rr = page.getByTestId("widget-reward-risk");
+    check("reward-risk widget shows 2.0 for entry 100, stop 95, target 110", (await rr.getByTestId("rr-value").innerText()) === "2.0");
+    check("reward-risk widget: break-even win rate is 33% and the plan meets 2 to 1", (await rr.getByTestId("rr-breakeven").innerText()) === "33%" && /meets the 2 to 1/.test(await rr.getByTestId("rr-verdict").innerText()));
+    const bars = await rr.evaluate((el) => ({ risk: el.querySelector('[data-testid="rr-risk-bar"]').getBoundingClientRect().width, reward: el.querySelector('[data-testid="rr-reward-bar"]').getBoundingClientRect().width }));
+    check("reward-risk diagram is drawn to scale (reward bar is twice the risk bar)", Math.abs(bars.reward / bars.risk - 2) < 0.02, `${bars.reward.toFixed(1)} / ${bars.risk.toFixed(1)}`);
+    await rr.getByLabel("Target price").fill("107.5");
+    check("reward-risk widget: a 1.5 plan says it is below 2 to 1 and names the target to reach", (await rr.getByTestId("rr-value").innerText()) === "1.5" && /below 2 to 1.*\$110\.00/.test(await rr.getByTestId("rr-verdict").innerText()));
+    await rr.getByLabel("Stop price").fill("100");
+    check("reward-risk widget: a stop at the entry shows a fix and no diagram", (await rr.getByTestId("rr-diagram").count()) === 0 && /below your entry/.test(await rr.innerText()));
+
+    await page.goto(`${BASE}/learn/trends-and-candles`);
+    const ts = page.getByTestId("widget-trend-spotter");
+    check("trend spotter shows three charts", (await ts.locator("svg[role=img]").count()) === 3);
+    check("trend spotter shows no score before the answers are checked", (await ts.getByTestId("ts-score").innerText()) === "" && (await ts.getByTestId("ts-check").isDisabled()));
+    // answer all three from the charts' own swing prices, so the check also proves the labels are right
+    const truth = await ts.locator("svg[role=img]").evaluateAll((svgs) =>
+      svgs.map((svg) => {
+        const nums = (k) => (svg.getAttribute("aria-label").match(new RegExp(k + ": ([^.]*)\\.")) || [])[1].split(",").map((x) => Number(x.replace(/[$,\s]/g, "")));
+        const lo = nums("Swing lows"), hi = nums("Swing highs");
+        const up = (a) => a.every((v, i) => !i || v > a[i - 1]), down = (a) => a.every((v, i) => !i || v < a[i - 1]);
+        return up(lo) && up(hi) ? "Uptrend" : down(lo) && down(hi) ? "Downtrend" : "Range";
+      }),
+    );
+    check("trend spotter's three charts are one uptrend, one downtrend and one range", [...truth].sort().join() === "Downtrend,Range,Uptrend", truth.join());
+    for (let i = 0; i < 3; i++) await ts.locator("fieldset").nth(i).getByLabel(truth[i], { exact: true }).check({ force: true });
+    await ts.getByTestId("ts-check").click();
+    check("trend spotter reveals a score after three answers", /^\d of 3 correct$/.test(await ts.getByTestId("ts-score").innerText()), await ts.getByTestId("ts-score").innerText());
+    check("trend spotter: correct answers score 3 of 3", (await ts.getByTestId("ts-score").innerText()) === "3 of 3 correct");
+    await ts.getByRole("button", { name: "Try three new charts" }).click();
+    check("trend spotter: new charts reset the score", (await ts.getByTestId("ts-score").innerText()) === "");
+    const wrong = await ts.locator("fieldset").evaluateAll((fs) => fs.length);
+    for (let i = 0; i < wrong; i++) await ts.locator("fieldset").nth(i).getByLabel("Range", { exact: true }).check({ force: true });
+    await ts.getByTestId("ts-check").click();
+    check("trend spotter: labelling every chart a range scores 1 of 3", (await ts.getByTestId("ts-score").innerText()) === "1 of 3 correct", await ts.getByTestId("ts-score").innerText());
+    await page.goto(`${BASE}/learn/position-sizing`);
+  }
 
   // coach
   await page.goto(`${BASE}/coach`);
@@ -1358,9 +1478,9 @@ async function consent(page) {
     const likeTexts = await demoArticles.locator("button[data-like]").allInnerTexts();
     check("no seeded like number appears on any demo post", likeTexts.every((t) => t.trim() === ""), JSON.stringify(likeTexts));
     const first = demoArticles.first();
-    await first.getByRole("button", { name: "Like", exact: true }).click();
+    await first.getByRole("button", { name: "Like this post", pressed: false }).click();
     check("liking a demo post shows only your own like (1)", (await first.locator("[data-like-count]").innerText()) === "1");
-    await first.getByRole("button", { name: "Unlike", exact: true }).click();
+    await first.getByRole("button", { name: "Like this post", pressed: true }).click();
     check("unliking hides the count again", (await first.locator("[data-like-count]").count()) === 0);
     check("composer links to the community guidelines", (await p.locator('main a[href="/community-guidelines"]').count()) >= 1);
     // Nova label on seeded and real comments
@@ -1375,7 +1495,8 @@ async function consent(page) {
     check("Report shows the toast and hides the post", (await p.getByText("Reported. Thanks for flagging it.").isVisible()) && (await p.locator("article", { hasText: "why does my stock drop the moment I buy it" }).count()) === 0);
     check("report is stored as reported[id] = true", (await state(p)).reported?.p4 === true);
     await p.getByRole("button", { name: "Undo" }).click();
-    check("Undo in the toast restores the post", (await p.locator("article", { hasText: "why does my stock drop the moment I buy it" }).count()) === 1 && !(await state(p)).reported?.p4);
+    const undoOk = await waitFor(async () => (await p.locator("article", { hasText: "why does my stock drop the moment I buy it" }).count()) === 1 && !(await state(p)).reported?.p4, 5000, 100);
+    check("Undo in the toast restores the post", undoOk, `articles ${await p.locator("article", { hasText: "why does my stock drop the moment I buy it" }).count()}, reported ${JSON.stringify((await state(p)).reported)}, toasts ${await p.locator("[data-toaster]").innerText()}`);
     await p.locator("article", { hasText: "why does my stock drop the moment I buy it" }).getByRole("button", { name: "Report post" }).click();
     await p.reload();
     await p.getByLabel("Post text").waitFor();
@@ -1438,6 +1559,8 @@ async function consent(page) {
   console.log("\nPages, themes, devices, links");
   const storage = await ctx.storageState();
   const links = new Set();
+  const smokeIssues = [];
+  check("text and surface tokens meet 4.5:1 in light and dark (edge 3:1)", tokenContrast().length === 0, tokenContrast().join(", "));
   for (const [label, opts] of [
     ["desktop-dark", { viewport: { width: 1440, height: 1000 }, colorScheme: "dark", reducedMotion: "reduce" }],
     ["desktop-light", { viewport: { width: 1440, height: 1000 }, colorScheme: "light", reducedMotion: "reduce" }],
@@ -1479,11 +1602,14 @@ async function consent(page) {
         return { px: Math.round(worst), who };
       });
       if (!ok || overflow > 1) check(`${label} ${r}`, false, `status ${res?.status()} overflow ${overflow}px (${who})`);
+      for (const issue of await p.evaluate(a11ySmoke)) smokeIssues.push(`${label} ${r}: ${issue}`);
       const name = `${label}${r.replace(/\//g, "_") || "_home"}.png`;
       await p.screenshot({ path: `${SHOTS}/${name}`, fullPage: true });
       for (const h of await p.$$eval('a[href^="/"]', (as) => as.map((a) => a.getAttribute("href")))) links.add(h.split("?")[0]);
     }
     check(`${label}: all ${ROUTES.length} pages render, no overflow`, true);
+    check(`${label}: accessibility smoke on ${ROUTES.length} pages (names, labels, one h1, unique ids, tab panels)`, smokeIssues.length === 0, smokeIssues.slice(0, 4).join(" | "));
+    smokeIssues.length = 0;
     await c.close();
   }
   // phone search overlay

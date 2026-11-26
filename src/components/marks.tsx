@@ -108,7 +108,7 @@ export function NovaByline({ tag = "AI coach", disclaimer = false, time, extra, 
       <span className="tag tag-nova">{tag}</span>
       {extra}
       {disclaimer && (
-        <Link href="/disclaimer" className="link t-small text-ink-2">
+        <Link href="/disclaimer" className="link -my-2.5 inline-block py-2.5 t-small text-ink-2">
           AI coach disclaimer
         </Link>
       )}
