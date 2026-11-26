@@ -23,6 +23,18 @@ Delegation rules that save tokens:
 4. Agents return **summaries** (what changed, file:line, anything unresolved), never full file dumps.
 5. One fix → one verify. Don't batch unrelated changes into one agent run.
 
+## Sources of truth (use these; never start from scratch)
+Every agent building the website or the app must reuse what already exists:
+- **Design**: `docs/design/direction.md` ("Blue Pencil": tokens, type, pencil marks, components, page wireframes, motion, copy rules). It overrides any older design notes.
+- **Brand**: `docs/design/brand.md` and `public/brand/` (logo, monogram, icons, OG image; regenerate with `scripts/brand/build_brand.py` + `render.cjs`). Never redraw the logo by hand.
+- **Legal**: `docs/legal/research-report.md` plus the legal pages in `src/app/(legal)/` and `src/lib/legal.ts`. Keep consent, disclaimers, Demo/Example/Simulated labels and the AI data notice intact on every surface, including the app.
+- **Marketing**: `docs/marketing/research-report.md` (§8 product changes, guardrails: no implied returns, no fake social proof, 18+).
+- **Backend**: `docs/backend/research-report.md` (Supabase + Resend, host-agnostic, RLS on every table).
+- **Plan and decisions**: `docs/plans/2026-11-24-preflight-overhaul.md` (Tasks 9–11 still to build; owner decisions: Free has 10 trades/day, Premium $30, Elite $60, honest paywalls, key-ready integrations).
+- **Logic you must reuse, not reimplement**: `src/lib/analysis.ts`, `src/lib/preflight.ts`, `src/lib/money.ts` (all reward/risk comparisons), `src/store/sync.ts` + `merge.ts` (the only way to persist state), `src/lib/course.ts`.
+- **Quality bar**: `npm run verify` (203+ checks) must pass, and new features add checks. Two-reviewer QA before anything counts as done. Earlier QA reports are in `.superpowers/sdd/` (local only).
+- **The phone app** reuses this same codebase (installable PWA first); a native app, if built later, must share `src/lib` and `src/store` logic, the brand assets and the legal flows.
+
 ## Commands
 
 ```bash
