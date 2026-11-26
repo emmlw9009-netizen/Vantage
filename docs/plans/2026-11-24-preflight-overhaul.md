@@ -200,3 +200,10 @@ Integrations. Backend decision (from `docs/backend/research-report.md`): **Supab
 5. AI coach: already key-ready (`ANTHROPIC_API_KEY`); add per-user server-side rate limiting once the backend exists, and the AI data notice from Task 8.
 6. `docs/setup/README.md`: one checklist of every key in the order to add them, with costs, plus how to set them on the hosting provider.
 7. verify: with no keys set, every page works and the Integrations panel shows everything "Not connected"; unit-level checks that webhook signature verification rejects bad signatures (using a fake secret in the test).
+
+### Task 11b: Background agents on eve (Vercel), key-ready
+Per the owner's request to use `vercel:build-agents`. New server-side agents are built as an **eve** project in `agents/` (`npx eve@latest init vantage-agents`), following eve's versioned docs in `node_modules/eve/docs/` (never from memory). Nova's in-app coach stays on the Anthropic SDK (an established stack, per the skill's own rule).
+1. **Moderation agent**: reviews community posts and comments that users Report (and new posts, when enabled) against `/community-guidelines`, with special attention to market manipulation / pump-and-dump talk, real-money solicitation, personal data and harassment. It never deletes on its own: it proposes hide / keep / escalate with a reason, and the owner (or a human moderator) approves. It writes an audit trail.
+2. **Weekly debrief agent (Elite)**: a scheduled durable run that writes each Elite member's weekly debrief from their journal stats (the same numbers as the local `/debrief` page), plus Nova's three focus points, and emails it via Resend (Task 11) only to members who opted in.
+3. Both are key-ready: they run only when deployed to Vercel with AI Gateway (and Supabase for data) configured, and they're documented in `docs/setup/agents.md` with cost notes (Vercel Hobby forbids commercial use, so Vercel Pro is needed once paid plans are live). Until then the app works without them: reports are hidden locally and Elite sees the local debrief page.
+Owner: `opus-engineer`. Review: QA R1 + qa-final.

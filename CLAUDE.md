@@ -41,6 +41,11 @@ Every agent building the website or the app must reuse what already exists:
 - **Quality bar**: `npm run verify` (203+ checks) must pass, and new features add checks. Two-reviewer QA before anything counts as done. Earlier QA reports are in `.superpowers/sdd/` (local only).
 - **The phone app** reuses this same codebase (installable PWA first); a native app, if built later, must share `src/lib` and `src/store` logic, the brand assets and the legal flows.
 
+## Project skills
+- `vantage-ship-task` (.claude/skills/vantage-ship-task): the owner's loop for shipping any task. Route by difficulty, isolate, build gate, two reviews, fix loop, merge, push, show.
+- `vantage-show-me` (.claude/skills/vantage-show-me): screenshots, walkthrough video, build-log refresh, email summary.
+Design work also loads `frontend-design:frontend-design`. New server-side agents follow `vercel:build-agents` (eve), see plan Task 11b.
+
 ## Commands
 
 ```bash
