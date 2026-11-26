@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
-import { BrandLockup } from "@/components/brand";
-import { LEGAL_PAGES } from "@/lib/legal";
+import { PublicFooter, PublicHeader } from "@/components/public-chrome";
 import { COURSE } from "@/lib/course";
 import { BOX, LOOP_D, TICK_D } from "@/lib/marks-geometry";
 import { HeroMotion } from "@/components/landing/hero-motion";
@@ -40,24 +39,7 @@ const pendingScript = `(function(){try{if(matchMedia("(prefers-reduced-motion: n
 export default function Landing() {
   return (
     <div className="min-h-dvh">
-      <header className="border-b border-rule">
-        <div className="mx-auto flex h-14 max-w-[1264px] items-center justify-between gap-3 px-4 lg:px-8">
-          <Link href="/" aria-label={`${BRAND.name} home`} className="inline-flex min-h-10 items-center rounded-md">
-            <BrandLockup />
-          </Link>
-          <nav aria-label="Site" className="flex items-center gap-1">
-            <Link href="/learn" className="hidden min-h-10 items-center px-3 text-[15px] font-medium text-ink-2 hover:text-ink sm:inline-flex">
-              Course
-            </Link>
-            <Link href="/community" className="hidden min-h-10 items-center px-3 text-[15px] font-medium text-ink-2 hover:text-ink sm:inline-flex">
-              Community
-            </Link>
-            <Link href="/dashboard" className="btn btn-primary ml-2">
-              Open the app
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <PublicHeader />
 
       <main>
         <script dangerouslySetInnerHTML={{ __html: pendingScript }} />
@@ -238,21 +220,7 @@ export default function Landing() {
         </section>
       </main>
 
-      <footer className="border-t border-rule">
-        <div className="mx-auto max-w-[1264px] px-4 py-10 lg:px-8">
-          <BrandLockup size="lg" />
-          <p className="mt-3 max-w-[72ch] t-small text-ink-2">{BRAND.name} is an educational simulator. No real money, no real trades. Prices and news are generated. Not investment advice. Not affiliated with or endorsed by any company named.</p>
-          <ul className="mt-3 flex flex-wrap gap-x-5" aria-label="Legal">
-            {LEGAL_PAGES.map((l) => (
-              <li key={l.href}>
-                <Link href={l.href} className="link inline-flex min-h-10 items-center t-small">
-                  {l.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

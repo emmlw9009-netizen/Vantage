@@ -51,7 +51,7 @@ const LEGAL_ROUTES = [
   ["/copyright", "Copyright and DMCA policy"],
   ["/accessibility", "Accessibility statement"],
 ];
-const ROUTES = ["/", "/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", "/learn", "/learn/position-sizing", "/learn/risk-reward", "/learn/trends-and-candles", "/coach", "/community", "/journal", "/settings", ...LEGAL_ROUTES.map((r) => r[0])];
+const ROUTES = ["/", "/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", "/learn", "/learn/position-sizing", "/learn/risk-reward", "/learn/trends-and-candles", "/coach", "/community", "/journal", "/settings", "/lessons", "/lessons/position-sizing", "/tools/position-size-calculator", "/tools/reward-risk-calculator", "/share/score?s=92&l=Disciplined&sym=NVDA&side=buy", ...LEGAL_ROUTES.map((r) => r[0])];
 const TERMS_VERSION = "2026-11-24";
 /** Onboarding step 1 now requires the consent checkbox before Continue or Skip. */
 async function consent(page) {
@@ -1551,6 +1551,190 @@ function tokenContrast() {
       check(`community: ${label} gets the canned Nova reply, not HTML`, nova && reply.includes("Love that you shared this") && !/<html|<!DOCTYPE|Internal Server Error|could not be found/i.test(reply), reply.slice(0, 80));
       await c.close();
     }
+  }
+
+
+  // ---------------- growth: public pages, calculators, share cards, tracking ----------------
+  console.log("\nGrowth features (public pages)");
+  const PUBLIC_PAGES = ["/lessons", "/lessons/position-sizing", "/lessons/risk-reward", "/tools/position-size-calculator", "/tools/reward-risk-calculator", "/share/score?s=92&l=Disciplined&sym=NVDA&side=buy"];
+  {
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const p = await c.newPage();
+    watch(p, "public");
+    const titles = new Map();
+    const descs = new Map();
+    const problems = [];
+    for (const r of PUBLIC_PAGES) {
+      const res = await p.goto(`${BASE}${r}`);
+      if (res?.status() !== 200) problems.push(`${r} status ${res?.status()}`);
+      const h1s = await p.locator("h1").count();
+      const title = await p.title();
+      const desc = (await p.locator('meta[name="description"]').getAttribute("content").catch(() => null)) ?? "";
+      if (h1s !== 1) problems.push(`${r} has ${h1s} h1`);
+      if (!title || titles.has(title)) problems.push(`${r} title not unique ("${title}")`);
+      if (desc.length < 50 || descs.has(desc)) problems.push(`${r} meta description missing or duplicate`);
+      titles.set(title, r);
+      descs.set(desc, r);
+      const body = await p.locator("body").innerText();
+      if (!/educational simulator/i.test(body) || !/not investment advice/i.test(body)) problems.push(`${r} lacks the simulator disclaimer`);
+      const legal = await p.locator('footer a[href="/terms"], footer a[href="/privacy"], footer a[href="/disclaimer"]').count();
+      if (legal !== 3) problems.push(`${r} footer lacks legal links`);
+      if ((await p.getByRole("dialog").count()) > 0) problems.push(`${r} shows a dialog (consent gate)`);
+    }
+    check(`${PUBLIC_PAGES.length} public pages: 200, exactly one h1, unique title and meta description, disclaimer and legal links, no consent gate`, problems.length === 0, problems.join(" | "));
+
+    await p.goto(`${BASE}/lessons/position-sizing`);
+    const h1 = await p.locator("h1").innerText();
+    const ld = await p.$$eval('script[type="application/ld+json"]', (els) => els.map((e) => e.textContent));
+    let ldType = "";
+    try {
+      ldType = JSON.parse(ld[0]).name + "|" + JSON.parse(ld[0])["@type"];
+    } catch {}
+    const canon = await p.locator('link[rel="canonical"]').getAttribute("href");
+    check("/lessons/position-sizing: lesson h1, LearningResource JSON-LD, canonical, no quiz, CTA to /learn/position-sizing", h1 === "Position sizing: the 1–2% rule" && ldType === "Position sizing: the 1–2% rule|LearningResource" && /\/lessons\/position-sizing$/.test(canon ?? "") && (await p.getByText("Check your understanding").count()) === 0 && (await p.getByRole("link", { name: "Practice this lesson" }).getAttribute("href")) === "/learn/position-sizing", `${h1} ${ldType} ${canon}`);
+    await p.goto(`${BASE}/lessons`);
+    check("/lessons lists every lesson as a link to /lessons/<slug>", (await p.locator('main a[href^="/lessons/"]').count()) === 19);
+
+    // calculators
+    await p.goto(`${BASE}/tools/position-size-calculator`);
+    await p.getByTestId("ps-account").fill("100000");
+    await p.getByTestId("ps-entry").fill("100");
+    await p.getByTestId("ps-stop").fill("95");
+    await p.getByTestId("ps-risk").evaluate((el) => {
+      const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+      set.call(el, "1");
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    check("position size calculator: 100000 account, 1% risk, entry 100, stop 95 gives 200 shares", (await p.getByTestId("ps-shares").innerText()).trim() === "200", await p.getByTestId("ps-shares").innerText());
+    await p.getByTestId("ps-stop").fill("105");
+    check("position size calculator: a stop above the entry shows a fix message, not a number", await p.getByText(/Your stop must be below your entry/).first().isVisible());
+    await p.goto(`${BASE}/tools/reward-risk-calculator`);
+    await p.getByTestId("rr-entry").fill("100");
+    await p.getByTestId("rr-stop").fill("95");
+    await p.getByTestId("rr-target").fill("110");
+    const rrText = await p.locator("main").innerText();
+    check("reward to risk calculator: 100 / 95 / 110 reads 2 : 1 and a 33% break-even win rate", /2(\.0)? ?: ?1/.test(rrText) && /33(\.\d)?%/.test(rrText));
+
+    // sitemap, robots
+    const sm = await (await fetch(`${BASE}/sitemap.xml`)).text();
+    check("/sitemap.xml lists the landing page, all 19 lessons, both tools and the legal pages", sm.includes("/lessons/position-sizing") && (sm.match(/\/lessons\/[a-z0-9-]+<\/loc>/g) || []).length === 19 && sm.includes("/tools/position-size-calculator") && sm.includes("/tools/reward-risk-calculator") && LEGAL_ROUTES.every(([r]) => sm.includes(`${r}</loc>`)));
+    const rb = await (await fetch(`${BASE}/robots.txt`)).text();
+    check("/robots.txt allows the public site, blocks the app routes and points to the sitemap", /Allow: \//.test(rb) && ["/dashboard", "/markets", "/coach", "/community", "/journal", "/settings"].every((r) => rb.includes(`Disallow: ${r}`)) && /Sitemap: .*\/sitemap\.xml/.test(rb), rb);
+
+    // share page and card
+    await p.goto(`${BASE}/share/score?s=92&l=Disciplined&sym=NVDA&side=buy`);
+    const card = await p.getByTestId("share-card").innerText();
+    check("/share/score renders the card: symbol, side, score and label", /Bought NVDA/.test(card) && (await p.getByTestId("share-label").innerText()) === "Disciplined" && (await p.getByRole("img", { name: /Process score 92 out of 100, Disciplined/ }).count()) === 1, card);
+    check("share card shows no P&L or returns, and carries the simulated-trade line", !/[$%]|profit|return|gain|loss|P&L/i.test(card.replace("Educational only, not investment advice.", "")) && card.includes("Simulated trade. Educational only, not investment advice."), card);
+    await p.goto(`${BASE}/share/score?s=999&sym=%3Cscript%3E&side=x`);
+    check("share page with hostile or out-of-range values falls back to a safe example", (await p.getByTestId("share-card").innerText()).includes("Bought SPY"));
+    await p.goto(`${BASE}/share/score?s=40&sym=TSLA&side=sell`);
+    check("share page: label follows the score (40 is High risk), not the link text", (await p.getByTestId("share-label").innerText()) === "High risk");
+    const og = await p.locator('meta[property="og:image"]').getAttribute("content");
+    const img = await fetch(`${BASE}/share/score/card?s=92&sym=NVDA&side=buy`);
+    const buf = Buffer.from(await img.arrayBuffer());
+    const isPng = buf.slice(1, 4).toString() === "PNG";
+    const w = isPng ? buf.readUInt32BE(16) : 0;
+    const h = isPng ? buf.readUInt32BE(20) : 0;
+    check("share card image: PNG 1200×630 rendered with local fonts, and the page's og:image points at it", img.status === 200 && isPng && w === 1200 && h === 630 && buf.length > 8000 && /\/share\/score\/card\?/.test(og ?? ""), `${img.status} ${w}x${h} ${buf.length}B ${og}`);
+    fs.writeFileSync(`${SHOTS}/share-card-og.png`, buf);
+
+    // tracking is a no-op without a Pixel ID
+    await p.goto(`${BASE}/`);
+    await p.waitForTimeout(400);
+    check("no Pixel ID: no cookie banner, no fbq, no Meta script, nothing stored", (await p.getByTestId("cookie-consent").count()) === 0 && (await p.evaluate(() => typeof window.fbq)) === "undefined" && (await p.locator('script[src*="facebook"]').count()) === 0 && (await p.evaluate(() => localStorage.getItem("sp-marketing-consent"))) === null);
+    await c.close();
+  }
+  {
+    // track(): compile the real module and run it against fake browsers
+    const ts = require("typescript");
+    const vm = require("vm");
+    const src = ts.transpileModule(fs.readFileSync(path.join(__dirname, "../src/lib/track.ts"), "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+    const load = (pixelId, stored) => {
+      const store = stored ? { "sp-marketing-consent": stored } : {};
+      const scripts = [];
+      const win = {};
+      const sandbox = {
+        window: win,
+        localStorage: { getItem: (k) => store[k] ?? null, setItem: (k, v) => (store[k] = v) },
+        document: { createElement: () => ({}), head: { appendChild: (s) => scripts.push(s) } },
+        process: { env: { NEXT_PUBLIC_META_PIXEL_ID: pixelId } },
+        module: { exports: {} },
+      };
+      sandbox.exports = sandbox.module.exports;
+      vm.runInNewContext(src, sandbox);
+      return { api: sandbox.module.exports, scripts, win };
+    };
+    let threw = false;
+    const a = load("", undefined);
+    try {
+      a.api.track("FirstTrade", { symbol: "SPY" });
+      a.api.track("ShareScore");
+      a.api.saveMarketingChoice("granted");
+    } catch {
+      threw = true;
+    }
+    check("track() without a Pixel ID does not throw, loads nothing and sends nothing", !threw && a.scripts.length === 0 && !a.win.fbq);
+    const b = load("123456789", undefined);
+    b.api.track("FirstTrade", { symbol: "SPY" });
+    check("track() with a Pixel ID but no consent loads no script", b.scripts.length === 0 && !b.win.fbq);
+    const d = load("123456789", "denied");
+    d.api.track("FirstTrade");
+    check("track() after 'Only necessary' loads no script", d.scripts.length === 0 && !d.win.fbq);
+    const g = load("123456789", undefined);
+    g.api.saveMarketingChoice("granted");
+    g.api.track("LessonComplete", { lesson: "position-sizing", email: "a@b.co", name: "Riley", thesis: "my secret reason", score: 88 });
+    const queued = (g.win.fbq?.queue ?? []).map((x) => JSON.stringify(x)).join(" ");
+    check("track() after consent loads the Pixel once and sends only whitelisted, non-identifying props", g.scripts.length === 1 && /connect\.facebook\.net/.test(g.scripts[0].src) && queued.includes("LessonComplete") && queued.includes("position-sizing") && !/a@b\.co|Riley|secret/.test(queued), queued);
+  }
+  {
+    // referral capture, stored once; Settings shows the invite link
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const p = await c.newPage();
+    watch(p, "referral");
+    await p.goto(`${BASE}/lessons?ref=Ana_7`);
+    await waitFor(async () => (await p.evaluate(() => localStorage.getItem("sp-app"))) !== null, 5000, 200);
+    check("?ref= on a public page is stored once as profile.referredBy", (await state(p)).profile.referredBy === "ana_7");
+    await p.goto(`${BASE}/?ref=bob`);
+    await p.waitForTimeout(300);
+    check("a second ?ref= does not replace the first", (await state(p)).profile.referredBy === "ana_7");
+    await p.goto(`${BASE}/lessons?ref=${encodeURIComponent("<b>x</b>")}`);
+    await p.waitForTimeout(300);
+    check("a malformed ref code is ignored", (await state(p)).profile.referredBy === "ana_7");
+    await p.goto(`${BASE}/dashboard`);
+    await p.getByPlaceholder("Your first name").fill("Riley");
+    await consent(p);
+    await p.getByRole("button", { name: "Skip" }).click();
+    await p.goto(`${BASE}/settings`);
+    const inv = await p.getByTestId("invite-link").innerText();
+    check("Settings shows 'Your invite link' (/?ref=<handle>) and onboarding kept referredBy", inv.includes("/?ref=riley") && (await state(p)).profile.referredBy === "ana_7" && (await p.getByRole("button", { name: "Copy invite link" }).isVisible()), inv);
+    await c.close();
+  }
+  {
+    // Share score from a real review card (Web Share API stubbed)
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await c.addInitScript(() => {
+      navigator.share = async (d) => {
+        window.__shared = d;
+      };
+    });
+    const p = await c.newPage();
+    watch(p, "share-score");
+    await p.goto(`${BASE}/dashboard`);
+    await p.getByPlaceholder("Your first name").fill("Sam");
+    await consent(p);
+    await p.getByRole("button", { name: "Skip" }).click();
+    await p.goto(`${BASE}/markets/SPY`);
+    await p.getByLabel(/Why are you making this trade/).fill("I expect the broad market to keep rising because earnings are steady, and I am wrong if it closes under the recent low.");
+    await p.locator("#stop").waitFor();
+    await p.getByRole("button", { name: "−5%" }).first().click();
+    await p.getByRole("button", { name: /^Buy \d+ SPY$/ }).click();
+    const btn = p.getByRole("button", { name: "Share score" }).first();
+    await btn.waitFor({ timeout: 15000 });
+    await btn.click();
+    const shared = await p.evaluate(() => window.__shared);
+    check("Share score opens the Web Share API with a /share/score link: score, label, symbol, side and no money", !!shared && /\/share\/score\?s=\d+&l=[A-Za-z+%0-9]+&sym=SPY&side=buy$/.test(shared.url) && !/pnl|profit|return/i.test(shared.url + shared.text), JSON.stringify(shared));
+    await c.close();
   }
 
   // ---------------- every page × theme × device ----------------
