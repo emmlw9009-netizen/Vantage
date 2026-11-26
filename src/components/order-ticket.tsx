@@ -75,7 +75,10 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
   const [error, setError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const busy = useRef(false);
+  // the newest field values, so edits typed while an order is still being placed are not wiped when it completes
+  const latest = useRef({ qty: "", stop: "", target: "", thesis: "", trigger: "" });
 
+  latest.current = { qty, stop, target, thesis, trigger };
   const touch = <T,>(fn: (v: T) => void) => (v: T) => {
     setTouched(true);
     setOkMsg(null);
@@ -152,6 +155,7 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
     // a double click (or Enter twice) repeats the exact order that was just placed: ignore it, but allow edits and new orders
     const sig = `${side}|${type}|${q}|${trigger}`;
     if (lastFill.current.sig === sig && Date.now() - lastFill.current.at < 1500) return;
+    const submitted = { ...latest.current };
     busy.current = true;
     setError(null);
     setOkMsg(null);
@@ -175,10 +179,17 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
       setOkMsg(`${buy ? "Bought" : "Sold"} ${q} ${symbol}. Nova is reviewing it.`);
       onFilled?.(res.tradeId);
     } else setOkMsg(`${type === "limit" ? "Limit" : "Stop"} order placed. It fills when ${symbol} reaches ${usd(entry)}.`);
-    _setThesis("");
-    _setStop("");
-    _setTarget("");
-    setTouched(false);
+    const now = latest.current;
+    const edited = now.qty !== submitted.qty || now.stop !== submitted.stop || now.target !== submitted.target || now.thesis !== submitted.thesis || now.trigger !== submitted.trigger;
+    if (!edited) {
+      _setThesis("");
+      _setStop("");
+      _setTarget("");
+      setTouched(false);
+    } else {
+      // the user kept typing: keep every edit, and keep the form live for the next order
+      setOkMsg(null);
+    }
     // release the in-flight guard on the next frame; the button stays locked until the next edit
     requestAnimationFrame(() => {
       busy.current = false;

@@ -91,10 +91,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   // Test-only price driver. Exists only when the verify script sets window.__VANTAGE_TEST__ before load; users never have it.
   useEffect(() => {
-    const w = window as unknown as { __VANTAGE_TEST__?: boolean; __vantageTest?: { setPrices: (p: Record<string, number>) => void; modules: unknown } };
+    const w = window as unknown as { __VANTAGE_TEST__?: boolean; __vantageTest?: { setPrices: (p: Record<string, number>) => void; modules: unknown; toast: (t: { title: string; body?: string; tone?: "default" | "good" | "warn" | "risk" }) => void } };
     if (!w.__VANTAGE_TEST__) return;
     w.__vantageTest = {
       modules: { preflightChecks, analyzeTrade, tradeChecks, missionDone },
+      toast: (t: { title: string; body?: string; tone?: "default" | "good" | "warn" | "risk" }) => useToast.getState().push(t),
       setPrices: (p) => {
         useMarket.setState((m) => ({ prices: { ...m.prices, ...p } }));
         useApp.getState().processPrices(useMarket.getState().prices);
