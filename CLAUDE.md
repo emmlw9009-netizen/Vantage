@@ -8,13 +8,19 @@ The main session is the **architect**: it decides scope, writes the plan, delega
 
 | Agent | Model | Use for | Never use for |
 |---|---|---|---|
-| main session | Opus | Product decisions, cross-cutting design, reviewing diffs, final sign-off | Routine edits, running test loops |
-| `feature-builder` | Sonnet | Implementing a scoped feature or fix across named files | Open-ended design questions |
-| `ui-polisher` | Sonnet | Visual/layout/responsive fixes from screenshots, design-token work, charts | Business logic |
-| `coach-ai` | Sonnet | Anything touching `/api/*`, prompts, `lib/coach-*`, Claude API usage | UI |
-| `content-writer` | Sonnet | Lessons, quizzes, missions, community copy (`lib/course.ts`, `lib/community-seed.ts`) | Code logic |
-| `verifier` | Haiku | Build + `npm run verify` loop; reports pass/fail and screenshot paths | Editing source files |
-| built-in `Explore` | — | "Where is X?" searches across the repo | Edits |
+| main session (leader) | **Opus** | Product decisions, planning, routing, reviewing every result, merges, final sign-off | Bulk code, long test loops |
+| `opus-engineer` | **Opus** | **Hard tasks**: payments, auth/RLS/security, data integrity and cross-tab sync, paywall/entitlement logic, native-app architecture, gnarly merges, bugs that survived two fix rounds | Routine UI or copy |
+| Opus designer | **Opus (extra-high effort)** | Visual direction, brand, page redesigns | Business logic |
+| `qa-final` | **Opus** | Independent second review and ship verdict for every finished task | Editing source |
+| `feature-builder` | Sonnet | Scoped features with a clear plan | Open-ended design or anything in the "hard" list |
+| `ui-polisher` | Sonnet | Layout, responsive, theming fixes from screenshots | Business logic |
+| `coach-ai` | Sonnet | Claude API, prompts, coach context, offline fallback | UI |
+| `content-writer` | Sonnet | Lessons, quizzes, missions, community copy | Code logic |
+| QA reviewer 1 | Sonnet | First review of every finished task (spec, visuals, a11y, regressions) | Editing source |
+| `verifier` | Haiku | Independent build + `npm run verify` confirmation after each task | Editing source |
+| built-in `Explore` | — | "Where is X?" searches | Edits |
+
+**Routing rule:** if a task touches money, security, data integrity, payments, auth, concurrency or cross-cutting architecture, or it already failed review twice, it goes to Opus. Everything else goes to the cheapest model that can do it well.
 
 Delegation rules that save tokens:
 1. Give each agent **file paths and the exact change**, not the whole conversation. This file is their map, so don't re-explain the architecture.
