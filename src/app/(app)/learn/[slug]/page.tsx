@@ -4,12 +4,41 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { ALL_LESSONS, LESSON_MAP, MISSIONS, moduleOf } from "@/lib/course";
-import { useApp } from "@/store/app";
+import { useApp, usePlan } from "@/store/app";
 import { useToast } from "@/store/toast";
 import { cn } from "@/lib/format";
 import { CheckCell, MarkGlyph } from "@/components/marks";
 import { track } from "@/lib/track";
 import { LessonWidget } from "@/components/lesson-widgets";
+import { can, canOpenLesson } from "@/lib/plans";
+import { Paywall, PlanTag } from "@/components/paywall";
+
+/** Lesson tools that also exist as free public calculators (Task 9). The paywall says so: nothing is hidden. */
+const PUBLIC_TOOL: Partial<Record<string, { href: string; label: string }>> = {
+  "position-size": { href: "/tools/position-size-calculator", label: "Position size calculator" },
+  "reward-risk": { href: "/tools/reward-risk-calculator", label: "Reward to risk calculator" },
+};
+
+function ToolPaywall({ widget }: { widget: string }) {
+  const tool = PUBLIC_TOOL[widget];
+  return (
+    <Paywall
+      gate="tools"
+      className="mt-10"
+      note={
+        tool && (
+          <>
+            The same calculator is free on our website:{" "}
+            <Link href={tool.href} className="link">
+              {tool.label}
+            </Link>
+            .
+          </>
+        )
+      }
+    />
+  );
+}
 
 export default function LessonPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -18,6 +47,7 @@ export default function LessonPage() {
   const completeLesson = useApp((s) => s.completeLesson);
   const completed = useApp((s) => s.completedLessons[slug]);
   const missions = useApp((s) => s.missions);
+  const plan = usePlan();
   const push = useToast((s) => s.push);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -38,6 +68,9 @@ export default function LessonPage() {
   const correct = lesson.quiz.filter((q, i) => answers[i] === q.answer).length;
   const allAnswered = Object.keys(answers).length === lesson.quiz.length;
   const mission = lesson.mission ? MISSIONS[lesson.mission] : undefined;
+  // Free: modules 3 to 6 open as a preview (the first section) followed by the paywall (lib/plans.ts)
+  const locked = !canOpenLesson(plan, slug);
+  const sections = locked ? lesson.sections.slice(0, 1) : lesson.sections;
 
   const submit = () => {
     setSubmitted(true);
@@ -69,11 +102,16 @@ export default function LessonPage() {
               <MarkGlyph kind="good" size={16} /> Completed
             </span>
           )}
+          {locked && (
+            <span className="inline-flex items-center gap-2">
+              <PlanTag feature="all-lessons" /> Preview
+            </span>
+          )}
         </p>
       </header>
 
       <div className="prose-lesson mt-10 space-y-10">
-        {lesson.sections.map((s) => (
+        {sections.map((s) => (
           <section key={s.heading}>
             <h2 className="t-h2 font-sans">{s.heading}</h2>
             {s.body.map((p, i) => (
@@ -85,6 +123,26 @@ export default function LessonPage() {
         ))}
       </div>
 
+      {locked ? (
+        <>
+          <Paywall
+            gate="lesson"
+            className="mt-10"
+            secondary={{ label: "Back to the course", href: "/learn" }}
+            note={
+              <>
+                The lesson text is also free to read on the{" "}
+                <Link href={`/lessons/${slug}`} className="link">
+                  public lesson page
+                </Link>
+                .
+              </>
+            }
+          />
+          <LessonNav slug={slug} prev={prev?.slug} next={next?.slug} />
+        </>
+      ) : (
+        <>
       {lesson.callout && (
         <div className="well mt-8 px-5 py-4">
           <div className="t-small font-semibold">{lesson.callout.title}</div>
@@ -92,7 +150,7 @@ export default function LessonPage() {
         </div>
       )}
 
-      {lesson.widget && <LessonWidget kind={lesson.widget} />}
+      {lesson.widget && (can(plan, "lesson-tools") ? <LessonWidget kind={lesson.widget} /> : <ToolPaywall widget={lesson.widget} />)}
 
       <section className="mt-10" aria-labelledby="remember-h">
         <h2 id="remember-h" className="t-h3">
@@ -232,23 +290,35 @@ export default function LessonPage() {
         </section>
       )}
 
-      <nav className="mt-10 flex flex-wrap items-center justify-between gap-3" aria-label="Lesson navigation">
+      <LessonNav slug={slug} prev={prev?.slug} next={next?.slug} ask />
+        </>
+      )}
+    </article>
+  );
+}
+
+function LessonNav({ slug, prev, next, ask = false }: { slug: string; prev?: string; next?: string; ask?: boolean }) {
+  return (
+    <nav className="mt-10 flex flex-wrap items-center justify-between gap-3" aria-label="Lesson navigation">
+      {ask ? (
         <Link href={`/coach?lesson=${slug}`} className="btn btn-secondary">
           Ask Nova about this lesson
         </Link>
-        <div className="flex gap-2">
-          {prev && (
-            <Link href={`/learn/${prev.slug}`} className="btn btn-quiet">
-              Previous lesson
-            </Link>
-          )}
-          {next && (
-            <Link href={`/learn/${next.slug}`} className="btn btn-primary">
-              Next lesson
-            </Link>
-          )}
-        </div>
-      </nav>
-    </article>
+      ) : (
+        <span />
+      )}
+      <div className="flex gap-2">
+        {prev && (
+          <Link href={`/learn/${prev}`} className="btn btn-quiet">
+            Previous lesson
+          </Link>
+        )}
+        {next && (
+          <Link href={`/learn/${next}`} className={ask ? "btn btn-primary" : "btn btn-secondary"}>
+            Next lesson
+          </Link>
+        )}
+      </div>
+    </nav>
   );
 }

@@ -2,7 +2,10 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useApp } from "@/store/app";
+import { useApp, usePlan } from "@/store/app";
+import { withWriteLock } from "@/store/sync";
+import { FREE_COACH_PER_DAY, coachLeft } from "@/lib/plans";
+import { Paywall } from "@/components/paywall";
 import { buildCoachContext } from "@/lib/coach-context";
 import { offlineAnswer } from "@/lib/offline-coach";
 import { LESSON_MAP } from "@/lib/course";
@@ -36,12 +39,36 @@ function Coach() {
   const clearChat = useApp((s) => s.clearChat);
   const name = useApp((s) => s.profile.name);
   const aiNoticeAt = useApp((s) => s.profile.aiNoticeAt);
+  const plan = usePlan();
+  const coachLog = useApp((s) => s.usage.coachLog);
+  // Free: 10 messages a day (lib/plans.ts); null means unlimited
+  const left = coachLeft(plan, coachLog);
   const params = useSearchParams();
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<CoachMode | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
+  const atLimit = left === 0;
+
+  // Toasts on this page sit just above whatever is docked at the bottom (the composer, or the paywall at the Free limit),
+  // so they never cover it. The Toaster reads --coach-dock: the distance from the dock's top to the bottom of the screen.
+  useEffect(() => {
+    const el = dockRef.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const set = () => root.style.setProperty("--coach-dock", `${Math.max(0, Math.round(window.innerHeight - el.getBoundingClientRect().top))}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    window.addEventListener("resize", set);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", set);
+      root.style.removeProperty("--coach-dock");
+    };
+  }, [atLimit]);
 
   useEffect(() => {
     // A failed probe is "unknown", never "offline". Re-probe on focus so the header and footer follow the server.
@@ -79,6 +106,9 @@ function Coach() {
     setMode(probed);
     const gate = gateFor(probed);
     if (gate === "wait") return; // the AI data notice is showing; keep the draft
+    // the daily allowance is checked and recorded in one step under the cross-tab lock, so two tabs share one count
+    const allowance = await withWriteLock(() => useApp.getState().noteCoachMessage());
+    if (!allowance.ok) return; // at the Free limit: the paywall replaces the composer
     const local = gate !== "send";
     setInput("");
     setBusy(true);
@@ -198,6 +228,15 @@ function Coach() {
           )}
           <div ref={endRef} />
         </div>
+        <div ref={dockRef}>
+        {atLimit ? (
+          <div className="pt-3">
+            <Paywall gate="coach" />
+            <p className="tnum mt-2 t-micro text-ink-2" data-testid="coach-allowance">
+              0 of {FREE_COACH_PER_DAY} free messages left today
+            </p>
+          </div>
+        ) : (
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -243,7 +282,14 @@ function Coach() {
               <>Educational coaching on a simulated market. Not investment advice.</>
             )}
           </p>
+          {left != null && (
+            <p className="tnum mt-1 t-micro text-ink-2" aria-live="polite" data-testid="coach-allowance">
+              {left} of {FREE_COACH_PER_DAY} free messages left today
+            </p>
+          )}
         </form>
+        )}
+        </div>
       </div>
     </div>
   );

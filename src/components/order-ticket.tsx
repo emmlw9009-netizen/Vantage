@@ -2,7 +2,7 @@
 
 import { track } from "@/lib/track";
 import { useId, useMemo, useRef, useState } from "react";
-import { useApp, equityOf, OrderType } from "@/store/app";
+import { useApp, equityOf, OrderType, usePlan } from "@/store/app";
 import { useMarket } from "@/store/market";
 import { analyzeTrade } from "@/lib/analysis";
 import { preflightChecks, type PreflightCheck } from "@/lib/preflight";
@@ -15,6 +15,8 @@ import { Reveal } from "./motion/transition-panel";
 import type { CheckId, CheckState } from "@/lib/trade-checks";
 import { ceilCent } from "@/lib/money";
 import { withWriteLock } from "@/store/sync";
+import { FREE_TRADES_PER_DAY, buysBlocked, tradesLeft } from "@/lib/plans";
+import { Paywall } from "./paywall";
 
 /** Risk budget used by the "size by risk" buttons: slightly under the chosen percent so slippage and a tick of drift stay within it. */
 const RISK_BUDGET = 0.98;
@@ -60,6 +62,8 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
   const positions = useApp((s) => s.positions);
   const trades = useApp((s) => s.trades);
   const placeOrder = useApp((s) => s.placeOrder);
+  const plan = usePlan();
+  const tradeLog = useApp((s) => s.usage.tradeLog);
   const held = positions[symbol]?.qty ?? 0;
 
   const [side, _setSide] = useState<"buy" | "sell">("buy");
@@ -176,6 +180,8 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
     }));
     if (!res.ok) {
       busy.current = false;
+      // the Free limit was reached (perhaps by another tab): the paywall replaces Buy, no error needed
+      if (res.code === "limit") return;
       return setError(res.error ?? "The order wasn't placed. Check the fields above and try again.");
     }
     lastFill.current = { at: Date.now(), sig };
@@ -212,6 +218,9 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
   const label = "mb-1.5 flex items-baseline justify-between gap-2 t-small font-medium text-ink-2";
   const quick = "btn btn-secondary min-h-10 min-w-11 px-2 t-table font-medium";
   const submitLabel = type === "market" ? `${buy ? "Buy" : "Sell"} ${q || 0} ${symbol}` : `Place ${type} ${side}`;
+  // Free plan: 10 orders a day (lib/plans.ts). Sells are never blocked; the store enforces the same rule under the lock.
+  const left = tradesLeft(plan, tradeLog);
+  const blocked = buy && buysBlocked(plan, tradeLog);
 
   return (
     <div className="sheet flex flex-col lg:max-h-[calc(100dvh-80px-var(--statusbar-h)-16px)]">
@@ -397,14 +406,23 @@ export function OrderTicket({ symbol, onFilled }: { symbol: string; onFilled?: (
           </div>
         )}
         <p className="mb-2 t-micro text-ink-2">Simulated trade. Prices are generated and are not real market prices. No real money.</p>
-        <button
-          onClick={submit}
-          onDoubleClick={(e) => e.preventDefault()}
-          aria-disabled={!touched}
-          className={cn("btn btn-primary btn-lg w-full", !touched && "cursor-not-allowed opacity-60")}
-        >
-          {submitLabel}
-        </button>
+        {blocked ? (
+          <Paywall gate="trades" className="mt-3" secondary={held > 0 ? { label: "Sell instead", onClick: () => setSide("sell") } : undefined} />
+        ) : (
+          <button
+            onClick={submit}
+            onDoubleClick={(e) => e.preventDefault()}
+            aria-disabled={!touched}
+            className={cn("btn btn-primary btn-lg w-full", !touched && "cursor-not-allowed opacity-60")}
+          >
+            {submitLabel}
+          </button>
+        )}
+        {left != null && (
+          <p className="tnum mt-2 t-micro text-ink-2" aria-live="polite" data-testid="trade-allowance">
+            {left} of {FREE_TRADES_PER_DAY} free trades left today{!buy && left === 0 ? ". Selling to close a position is always allowed" : ""}
+          </p>
+        )}
       </div>
     </div>
   );

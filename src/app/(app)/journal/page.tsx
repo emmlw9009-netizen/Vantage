@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useApp } from "@/store/app";
+import { useApp, usePlan } from "@/store/app";
+import { can } from "@/lib/plans";
+import { downloadTradesCsv } from "@/lib/data-controls";
+import { useToast } from "@/store/toast";
+import { Paywall, PaywallDialog, PlanTag } from "@/components/paywall";
 import { journalStats } from "@/lib/journal-stats";
 import { CHECKS, isAutoExit, tradeChecks } from "@/lib/trade-checks";
 import { LESSON_MAP } from "@/lib/course";
@@ -18,6 +22,14 @@ export default function JournalPage() {
   const trades = useApp((s) => s.trades);
   const st = useMemo(() => journalStats(trades), [trades]);
   const [filter, setFilter] = useState<Filter>("all");
+  const plan = usePlan();
+  const insights = can(plan, "journal-insights");
+  const [csvPaywall, setCsvPaywall] = useState(false);
+  const exportCsv = () => {
+    if (!can(plan, "csv-export")) return setCsvPaywall(true);
+    downloadTradesCsv(trades);
+    useToast.getState().push({ title: "Trades exported", body: `A CSV file with ${trades.length} simulated ${trades.length === 1 ? "trade" : "trades"} was downloaded.`, tone: "good" });
+  };
   const record = trades.filter((t) => !isAutoExit(t)).slice(0, 30);
   const history = trades.filter((t) => (filter === "all" ? true : filter === "buys" ? t.side === "buy" && !isAutoExit(t) : filter === "sells" ? t.side === "sell" && !isAutoExit(t) : isAutoExit(t)));
   const maxMistake = st.mistakes[0]?.n ?? 1;
@@ -26,6 +38,12 @@ export default function JournalPage() {
     <div>
       <h1 className="t-title">Journal</h1>
       <p className="mt-2 max-w-[72ch] t-lead">Every trade you place, checked and filed. The empty columns show the habit to work on.</p>
+      <p className="mt-3 flex flex-wrap items-center gap-2 t-small">
+        <Link href="/debrief" className="link inline-flex min-h-10 items-center">
+          Weekly debrief
+        </Link>
+        {!can(plan, "weekly-debrief") && <PlanTag feature="weekly-debrief" />}
+      </p>
 
       {trades.length === 0 ? (
         <div className="mt-10 max-w-[760px]">
@@ -158,6 +176,9 @@ export default function JournalPage() {
               <h2 id="patterns-h" className="t-h2 mb-3">
                 Patterns Nova sees
               </h2>
+              {!insights ? (
+                <Paywall gate="patterns" compact />
+              ) : (
               <div className="nova-note">
                 <NovaByline disclaimer />
                 {st.patterns.length ? (
@@ -180,6 +201,7 @@ export default function JournalPage() {
                   <p className="t-note mt-2">No repeated mistakes yet. Keep writing your reasons down and setting stops, and this stays empty.</p>
                 )}
               </div>
+              )}
             </aside>
           </div>
 
@@ -190,7 +212,22 @@ export default function JournalPage() {
             </section>
             <section aria-labelledby="mistakes-h" className="min-w-0" data-testid="mistakes">
               <SectionTitle id="mistakes-h" title="Most common mistakes" />
-              {st.mistakes.length === 0 ? (
+              {!insights ? (
+                <>
+                  {/* preview: the chart's real categories, with plain well blocks instead of bars and no counts (no blur) */}
+                  {st.mistakes.length > 0 && (
+                    <ul className="mb-4 space-y-2.5" aria-label="Preview of the chart. Counts are part of Premium." data-testid="mistakes-preview">
+                      {st.mistakes.slice(0, 4).map((m) => (
+                        <li key={m.id} className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)] items-center gap-3 t-small">
+                          <span className="truncate">{m.name}</span>
+                          <span className="block h-4 w-3/4 rounded-r-[4px] bg-well" aria-hidden />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <Paywall gate="mistakes" />
+                </>
+              ) : st.mistakes.length === 0 ? (
                 <p className="t-small text-ink-2">No mistakes flagged yet.</p>
               ) : (
                 <ul className="space-y-2.5">
@@ -211,7 +248,19 @@ export default function JournalPage() {
           </div>
 
           <section aria-labelledby="history-h" className="mt-12 min-w-0">
-            <SectionTitle id="history-h" title="Trade history" />
+            <SectionTitle
+              id="history-h"
+              title="Trade history"
+              action={
+                <span className="flex items-center gap-2">
+                  {!can(plan, "csv-export") && <PlanTag feature="csv-export" />}
+                  <button onClick={exportCsv} className="btn btn-secondary" aria-haspopup={can(plan, "csv-export") ? undefined : "dialog"}>
+                    Export CSV
+                  </button>
+                </span>
+              }
+            />
+            {csvPaywall && <PaywallDialog gate="csv" onClose={() => setCsvPaywall(false)} />}
             <Segmented kind="tabs" idBase="history" label="Filter trades" value={filter} onChange={setFilter} options={[{ value: "all", label: "All" }, { value: "buys", label: "Buys" }, { value: "sells", label: "Sells" }, { value: "auto", label: "Automatic exits" }]} />
             <TabPanel idBase="history" value={filter}>
             <ul className="mt-2">

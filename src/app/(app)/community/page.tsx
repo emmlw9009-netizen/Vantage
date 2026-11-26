@@ -3,7 +3,9 @@
 import { BRAND } from "@/lib/brand";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useApp, useEquity, ME, STARTING_CASH } from "@/store/app";
+import { useApp, useEquity, usePlan, ME, STARTING_CASH } from "@/store/app";
+import { can } from "@/lib/plans";
+import { PaywallDialog, PlanTag } from "@/components/paywall";
 import { CHALLENGES, MEMBERS, MEMBER_MAP, SEED_POSTS } from "@/lib/community-seed";
 import { TICKER_MAP } from "@/lib/market-data";
 import { buildCoachContext } from "@/lib/coach-context";
@@ -151,6 +153,7 @@ function Feed() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 t-small">
                     <span className="font-semibold">{author ? author.name : "You"}</span>
+                    {p.authorId === ME && <EliteBadge />}
                     {p.authorId === "u7" && <span className="tag tag-nova">AI coach</span>}
                     {author?.badge && p.authorId !== "u7" && <span className="tag">{author.badge}</span>}
                     {p.authorId === "u7" && <span className="tag tag-nova">AI-generated</span>}
@@ -269,6 +272,17 @@ function Feed() {
   );
 }
 
+/** Elite members' badge. Shown only on the user's own posts and rows: demo members never get a paid badge. */
+function EliteBadge() {
+  const plan = usePlan();
+  if (!can(plan, "elite-badge")) return null;
+  return (
+    <span className="tag tag-plan" data-elite-badge>
+      Elite
+    </span>
+  );
+}
+
 /** Marks sample content. Text, not colour alone. */
 function DemoTag({ what }: { what: string }) {
   return (
@@ -344,7 +358,7 @@ function Leaderboard() {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2 font-medium">
                   <span className="truncate">{r.name}</span>
-                  {r.id !== ME && <DemoTag what="member" />}
+                  {r.id !== ME ? <DemoTag what="member" /> : <EliteBadge />}
                 </div>
                 <div className="truncate t-micro text-ink-2">{r.level}</div>
               </div>
@@ -380,7 +394,7 @@ function MiniLeaders() {
           <li key={r.id} className="flex items-center gap-3 border-b border-rule py-2">
             <span className="tnum w-4 text-ink-2">{i + 1}</span>
             <span className="min-w-0 flex-1 truncate font-medium">{r.name}</span>
-            {r.id !== ME && <DemoTag what="member" />}
+            {r.id !== ME ? <DemoTag what="member" /> : <EliteBadge />}
             <span className="tnum font-semibold">{r.disciplineScore || "None"}</span>
           </li>
         ))}
@@ -392,6 +406,9 @@ function MiniLeaders() {
 function Challenges() {
   const following = useApp((s) => s.following);
   const toggleFollow = useApp((s) => s.toggleFollow);
+  const plan = usePlan();
+  const canJoin = can(plan, "challenges");
+  const [paywall, setPaywall] = useState(false);
   return (
     <div className="max-w-[880px] border-t border-rule-strong">
       {CHALLENGES.map((c) => {
@@ -410,12 +427,22 @@ function Challenges() {
                 Ends in {c.endsInDays} days. {c.xp} XP. {joined ? "You joined." : "Sample challenge."}
               </p>
             </div>
-            <button onClick={() => toggleFollow(`challenge:${c.id}`)} aria-pressed={joined} className={cn("btn", joined ? "btn-secondary" : "btn-primary")}>
-              {joined ? "Joined" : "Join challenge"}
-            </button>
+            {canJoin || joined ? (
+              <button onClick={() => toggleFollow(`challenge:${c.id}`)} aria-pressed={joined} className={cn("btn", joined ? "btn-secondary" : "btn-primary")}>
+                {joined ? "Joined" : "Join challenge"}
+              </button>
+            ) : (
+              <span className="flex items-center gap-2">
+                <PlanTag feature="challenges" />
+                <button onClick={() => setPaywall(true)} aria-haspopup="dialog" className="btn btn-secondary">
+                  Join challenge
+                </button>
+              </span>
+            )}
           </section>
         );
       })}
+      {paywall && <PaywallDialog gate="challenges" onClose={() => setPaywall(false)} />}
     </div>
   );
 }

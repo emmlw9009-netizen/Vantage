@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useApp } from "@/store/app";
+import { useApp, usePlan } from "@/store/app";
+import { withWriteLock } from "@/store/sync";
+import { FREE_COACH_PER_DAY, FREE_TRADES_PER_DAY, PLANS, canPreviewInTestMode, priceLabel } from "@/lib/plans";
+import { Tag } from "@/components/marks";
 import { useToast } from "@/store/toast";
 import { BRAND } from "@/lib/brand";
 import { LEGAL } from "@/lib/legal";
@@ -43,6 +46,15 @@ export default function SettingsPage() {
   const consent = useApp((s) => s.profile.consent);
   const handle = useApp((s) => s.profile.handle);
   const resetAccount = useApp((s) => s.resetAccount);
+  const plan = usePlan();
+  const planSource = useApp((s) => s.profile.planSource);
+  const planChangedAt = useApp((s) => s.profile.planChangedAt);
+  const testMode = plan !== "free" && planSource !== "server";
+  // One click, no confirmation step, no "are you sure": cancelling is as easy as starting (Terms section 15).
+  const cancelPlan = async () => {
+    const ok = await withWriteLock(() => useApp.getState().setPlan("free", "test"));
+    if (ok) push({ title: "Plan cancelled. You're on Free.", body: "Nothing was charged. Your trades, lessons and journal stay.", tone: "good" });
+  };
   const push = useToast((s) => s.push);
   const [theme, setTheme] = useTheme();
   const [dialog, setDialog] = useState<null | "delete" | "reset">(null);
@@ -67,11 +79,31 @@ export default function SettingsPage() {
     <div className="max-w-[880px]">
       <h1 className="t-title">Settings</h1>
 
-      <section className="mt-10 divide-y divide-rule border-t border-rule-strong" aria-labelledby="plan-h">
+      <section id="membership" className="mt-10 divide-y divide-rule border-t border-rule-strong" aria-labelledby="plan-h">
         <div className="flex flex-wrap items-center justify-between gap-3 py-4">
-          <div>
+          <div className="min-w-0 max-w-md">
             <h2 id="plan-h" className="t-h2">Membership</h2>
-            <p className="mt-0.5 text-sm text-ink-2" data-testid="plan-row">Plan: Free</p>
+            <p className="mt-1 flex flex-wrap items-center gap-2">
+              <span className="font-semibold" data-testid="plan-row">Plan: {PLANS[plan].name}</span>
+              {testMode && <Tag>Test mode</Tag>}
+            </p>
+            <p className="mt-1 text-sm text-ink-2" data-testid="plan-detail">
+              {plan === "free"
+                ? `${FREE_TRADES_PER_DAY} trades and ${FREE_COACH_PER_DAY} coach messages a day, and the lessons in modules 1 and 2.`
+                : testMode
+                  ? `You're previewing ${PLANS[plan].name} in test mode${planChangedAt ? ` since ${new Date(planChangedAt).toLocaleDateString(undefined, { month: "long", day: "numeric" })}` : ""}. Payments aren't live yet, so nothing is charged. When they are, ${PLANS[plan].name} will be ${priceLabel(plan)} a month and we'll ask before any billing starts.`
+                  : `${PLANS[plan].name}, ${priceLabel(plan)} a month.`}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/upgrade" className={btn}>
+              See plans
+            </Link>
+            {plan !== "free" && canPreviewInTestMode(planSource) && (
+              <button onClick={cancelPlan} className={btn}>
+                Cancel plan
+              </button>
+            )}
           </div>
         </div>
       </section>

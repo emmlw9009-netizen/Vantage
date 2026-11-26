@@ -16,9 +16,9 @@ export const LEGAL = {
   logRetention: "[log retention period]",
   euRepresentative: "[EU/UK representative and DPO details, if required]",
   /** Date the current legal texts take effect. */
-  effectiveDate: "November 24, 2026",
+  effectiveDate: "November 26, 2026",
   /** Bump when Terms or Privacy change materially: every user is asked to agree again. */
-  termsVersion: "2026-11-24",
+  termsVersion: "2026-11-26",
   minimumAge: 18,
   /** The one canonical list of what is sent to the AI provider. Every notice and policy renders this. */
   aiData: "your display name, experience level and goal, your simulated portfolio, orders and trades (including trade notes), lesson progress, and the text of the chat messages and community posts you send to Nova",

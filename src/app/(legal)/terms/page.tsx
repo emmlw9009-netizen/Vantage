@@ -14,7 +14,7 @@ export default function Terms() {
           {BRAND.name} is an educational simulator. You trade with pretend money in a market that is generated, not real. Nothing here is investment, financial, tax or legal advice, and {BRAND.name} cannot place real trades.
         </p>
         <p>
-          You must be {LEGAL.minimumAge} or older. Nova, our coach, is an AI and can be wrong. These terms include an arbitration clause and a class-action waiver (section 19), which you can opt out of within 30 days. If paid plans are offered in future and you choose one, it will renew automatically until you cancel (section 15). Today the Service is free.
+          You must be {LEGAL.minimumAge} or older. Nova, our coach, is an AI and can be wrong. These terms include an arbitration clause and a class-action waiver (section 19), which you can opt out of within 30 days. We offer Free, Premium and Elite plans (section 15). Payments are not live yet, so Premium and Elite can only be previewed in test mode, at no charge. When billing starts, a paid plan will renew automatically until you cancel, and you can cancel in Settings with one click.
         </p>
       </Summary>
 
@@ -128,17 +128,18 @@ export default function Terms() {
 
       <S id="paid-plans" title="15. Paid plans">
         <p>
-          Today the Service is free and there is nothing to buy. This section describes the terms that will apply <strong>when paid plans are offered</strong>. We will show them next to every purchase button, before you pay, and we will tell you in the app before paid plans start.
+          We offer three plans: Free, Premium and Elite. <strong>Payments are not live yet.</strong> Until they are, you can preview Premium or Elite in test mode at no charge, as described below. We show these terms next to every button that starts a plan, and before any real billing starts we will tell you in the app and ask you to agree.
         </p>
         <ul>
-          <li><strong>Plans and prices.</strong> We expect to offer a Free plan ($0, including a limit of 10 trades per day), Premium ($30 per month) and Elite ($60 per month). Plans and prices will be shown in the app before you buy. They may change before launch.</li>
-          <li><strong>Automatic renewal.</strong> Paid plans will be billed monthly and renew automatically each month until you cancel.</li>
-          <li><strong>How to cancel.</strong> You will be able to cancel online at any time in Settings, in one step, which will be as easy as signing up. You will not need to contact us.</li>
-          <li><strong>When cancellation takes effect.</strong> Cancelling stops future renewals. Paid features continue until the end of the period you have already paid for, then your account returns to the Free plan.</li>
+          <li><strong>Plans and prices.</strong> Free ($0) includes the simulator with a limit of 10 trades per day, the lessons in the first two modules and 10 messages to Nova per day. Premium ($30 per month) and Elite ($60 per month) add the features listed on our <Link href="/pricing">Pricing page</Link>, and a plan lists only features that exist in the Service. Prices may change before payments go live.</li>
+          <li><strong>Daily limits on Free.</strong> Every order you place counts toward the 10 trades per day. Selling to close or reduce a position is always allowed, even at the limit, and automatic stop-loss and take-profit exits never count and always run. Daily limits reset at midnight in your device’s local time.</li>
+          <li><strong>Test mode.</strong> While payments are not live, choosing Premium or Elite starts a preview in a clearly labelled test mode. No payment is taken, no card is asked for or charged, and nothing renews. The preview is stored in your browser with your other data, so deleting your data in Settings also returns you to Free. Real billing will start only after we tell you and you choose to start it.</li>
+          <li><strong>Automatic renewal.</strong> When payments are live, paid plans will be billed monthly and renew automatically each month until you cancel.</li>
+          <li><strong>How to cancel.</strong> You can cancel at any time in Settings with one click (“Cancel plan”), which is as easy as starting a plan. You do not need to contact us.</li>
+          <li><strong>When cancellation takes effect.</strong> In test mode, cancelling returns you to the Free plan at once. When payments are live, cancelling stops future renewals: paid features continue until the end of the period you have already paid for, then your account returns to the Free plan.</li>
           <li><strong>Refunds.</strong> {LEGAL.refundPolicy}</li>
           <li><strong>Price changes.</strong> If we change the price of a plan, we will tell you in advance (by email or in the app) and the new price will apply from your next renewal after the notice. You can cancel before then.</li>
           <li><strong>Taxes.</strong> Prices may exclude taxes. Where we are required to collect sales tax, VAT or similar taxes, they will be shown at checkout.</li>
-          <li><strong>Test mode.</strong> While payments are not live, any plan preview will run in a clearly labelled test mode. No payment is taken and no card is charged. Real billing will start only after we tell you and you choose to start it.</li>
         </ul>
         <p>When payments are live, they will be processed by a third-party payment provider (planned: Stripe). We will not store your full card number.</p>
       </S>

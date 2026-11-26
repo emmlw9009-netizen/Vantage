@@ -5,6 +5,7 @@ import { persist } from "zustand/middleware";
 import { analyzeTrade, Flag, PortfolioContext } from "@/lib/analysis";
 import { uid, usd } from "@/lib/format";
 import { expectedFill, marketFillPrice } from "@/lib/pricing";
+import { FREE_TRADES_PER_DAY, canPreviewInTestMode, coachGate, orderGate, planOf, stampToday, usedToday, type PlanId, type PlanSource, type UsageStamp } from "@/lib/plans";
 import { useMarket } from "./market";
 import { useToast } from "./toast";
 import { guardActions, guardedStorage } from "./sync";
@@ -110,6 +111,22 @@ export interface Profile {
   aiNoticeAt?: string;
   /** Invite code from a ?ref= link, stored once. No rewards yet. */
   referredBy?: string;
+  /** Membership plan. Read it through planOf()/usePlan(): anything unknown is Free. Written only by setPlan(). */
+  plan?: PlanId;
+  /** ISO time of the last plan change. */
+  planChangedAt?: string;
+  /** "test": a free test-mode preview (payments not live). "server": set by the payment server (Task 11). */
+  planSource?: PlanSource;
+}
+
+/**
+ * Today's usage on the daily-limited features, as logs of stamps (one per order placed / coach message sent).
+ * A log, not a number: two tabs merge their logs by id (store/merge.ts), so no increment is ever lost or doubled, and
+ * "today" is decided by each stamp's local date, so the count resets at local midnight without any timer.
+ */
+export interface Usage {
+  tradeLog: UsageStamp[];
+  coachLog: UsageStamp[];
 }
 
 interface AppState {
@@ -134,6 +151,8 @@ interface AppState {
   following: Record<string, boolean>;
   // coach
   chat: ChatMsg[];
+  // membership
+  usage: Usage;
 
   setProfile: (p: Partial<Profile>) => void;
   placeOrder: (o: {
@@ -146,7 +165,7 @@ interface AppState {
     thesis?: string;
     stopLoss?: number;
     takeProfit?: number;
-  }) => { ok: boolean; error?: string; tradeId?: string; orderId?: string };
+  }) => { ok: boolean; error?: string; tradeId?: string; orderId?: string; code?: "limit" };
   cancelOrder: (id: string) => void;
   processPrices: (prices: Record<string, number>) => string[];
   setReview: (tradeId: string, review: CoachReview | null) => void;
@@ -164,6 +183,10 @@ interface AppState {
   updateChat: (id: string, content: string) => void;
   clearChat: () => void;
   resetAccount: () => void;
+  /** Change the plan. Test-mode previews and cancels go through here today; the payment server later (source "server"). */
+  setPlan: (plan: PlanId, source?: PlanSource) => boolean;
+  /** Records one coach message against today's allowance. Refuses (and records nothing) when a Free user is at the limit. */
+  noteCoachMessage: () => { ok: boolean };
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -301,7 +324,7 @@ export const useApp = create<AppState>()(
       };
 
       const api: AppState = {
-        profile: { name: "", handle: "", experience: "new", goal: "learn", onboarded: false },
+        profile: { name: "", handle: "", experience: "new", goal: "learn", onboarded: false, plan: "free" },
         ...freshAccount(),
         watchlist: ["SPY", "AAPL", "NVDA", "MSFT", "TSLA"],
         xp: 0,
@@ -314,6 +337,7 @@ export const useApp = create<AppState>()(
         reported: {},
         following: {},
         chat: [],
+        usage: { tradeLog: [], coachLog: [] },
 
         setProfile: (p) => set((s) => ({ profile: { ...s.profile, ...p } })),
 
@@ -337,6 +361,10 @@ export const useApp = create<AppState>()(
             if (qty > held) return { ok: false, error: held ? `You only hold ${held} shares.` : `You don't own any ${input.symbol}.` };
           }
           if (input.type !== "market" && !(input.limitPrice || input.stopPrice)) return { ok: false, error: "Enter a trigger price. A limit or stop order waits for that price before it fills." };
+          // Daily limit (lib/plans.ts). Checked here, inside the cross-tab write lock the ticket holds, so two tabs can never
+          // together place more than the Free allowance: each sees the other's stamps before it decides.
+          const gate = orderGate(planOf(s.profile.plan), input.side, usedToday(s.usage?.tradeLog));
+          if (!gate.allowed) return { ok: false, code: "limit", error: `You've placed ${FREE_TRADES_PER_DAY} trades today, the Free limit. Selling to close a position still works.` };
 
           const order: Order = {
             id: uid(),
@@ -354,6 +382,10 @@ export const useApp = create<AppState>()(
             takeProfit: input.side === "buy" ? input.takeProfit : undefined,
           };
           set({ orders: [order, ...s.orders] });
+          // every order the user places counts once it is accepted; automatic bracket exits are filled elsewhere and never count
+          const count = () => {
+            if (gate.counts) set((st) => ({ usage: { ...st.usage, tradeLog: stampToday(st.usage?.tradeLog, order.id) } }));
+          };
           if (order.type === "market") {
             // tiny slippage so market orders feel real
             const tradeId = fill(order, marketFillPrice(order.side, price));
@@ -361,8 +393,10 @@ export const useApp = create<AppState>()(
               set((st) => ({ orders: st.orders.map((o) => (o.id === order.id ? { ...o, status: "cancelled" as const } : o)) }));
               return { ok: false, error: "The order was not filled. Check your cash and shares, then try again." };
             }
+            count();
             return { ok: true, tradeId, orderId: order.id };
           }
+          count();
           return { ok: true, orderId: order.id };
         },
 
@@ -454,7 +488,22 @@ export const useApp = create<AppState>()(
         updateChat: (id, content) => set((s) => ({ chat: s.chat.map((c) => (c.id === id ? { ...c, content } : c)) })),
         clearChat: () => set({ chat: [] }),
 
+        // The daily usage log stays: resetting the practice account is not a way around the Free limit.
         resetAccount: () => set({ ...freshAccount() }),
+
+        setPlan: (plan, source = "test") => {
+          const p = get().profile;
+          if (source === "test" && !canPreviewInTestMode(p.planSource)) return false;
+          set({ profile: { ...p, plan: planOf(plan), planChangedAt: new Date().toISOString(), planSource: source } });
+          return true;
+        },
+
+        noteCoachMessage: () => {
+          const s = get();
+          if (!coachGate(planOf(s.profile.plan), usedToday(s.usage?.coachLog)).allowed) return { ok: false };
+          set({ usage: { ...s.usage, coachLog: stampToday(s.usage?.coachLog, uid()) } });
+          return { ok: true };
+        },
       };
       // every action first catches up with other tabs, and is re-run if a write was refused
       return guardActions("sp-app", api);
@@ -469,6 +518,11 @@ export const useApp = create<AppState>()(
     },
   ),
 );
+
+/** The current plan, normalised (unknown values are Free). Every gate reads the plan through this or planOf(). */
+export function usePlan(): PlanId {
+  return useApp((s) => planOf(s.profile.plan));
+}
 
 export function useEquity() {
   const cash = useApp((s) => s.cash);
@@ -492,7 +546,18 @@ function mergeApp(persisted: unknown, current: AppState): AppState {
   for (const k of ["orders", "equityHistory", "watchlist", "activeDays", "posts", "chat"] as const) if (Array.isArray(p[k])) out[k] = (p[k] as unknown[]).filter((x) => x != null);
   for (const k of ["completedLessons", "missions", "liked", "comments", "reported", "following"] as const) if (isRec(p[k])) out[k] = p[k];
   for (const k of ["cash", "xp"] as const) if (typeof p[k] === "number" && Number.isFinite(p[k])) out[k] = p[k];
-  if (isRec(p.profile)) out.profile = { ...current.profile, ...p.profile };
+  if (isRec(p.profile)) {
+    const prof = { ...current.profile, ...p.profile } as Profile;
+    prof.plan = planOf(prof.plan);
+    if (prof.planSource !== "test" && prof.planSource !== "server") delete prof.planSource;
+    out.profile = prof;
+  }
+  {
+    // usage logs: keep only well-formed stamps; anything else starts the day's count from what is valid
+    const u = isRec(p.usage) ? p.usage : {};
+    const clean = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is UsageStamp => isRec(x) && typeof x.id === "string" && Number.isFinite(x.at)) : []);
+    out.usage = { tradeLog: clean(u.tradeLog), coachLog: clean(u.coachLog) };
+  }
   if (isRec(p.positions)) {
     const pos: Record<string, Position> = {};
     for (const [sym, v] of Object.entries(p.positions)) {

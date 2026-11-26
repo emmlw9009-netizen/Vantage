@@ -58,3 +58,47 @@ export function deleteAllData() {
     window.location.assign("/dashboard");
   });
 }
+
+/* ---------------- CSV export of trades (Premium) ---------------- */
+
+type CsvTrade = { at: number; side: string; symbol: string; qty: number; price: number; role: string; stopLoss?: number; takeProfit?: number; realizedPnl?: number; score: number; thesis?: string };
+
+const ROLE_WORD: Record<string, string> = { entry: "Entry", exit: "Exit", "stop-loss": "Stop-loss (automatic)", "take-profit": "Take-profit (automatic)" };
+
+/** One CSV field. Text that a spreadsheet would run as a formula (=, +, -, @, tab, return) is prefixed with an apostrophe. */
+function cell(v: string | number | undefined): string {
+  if (v == null || (typeof v === "number" && !Number.isFinite(v))) return "";
+  if (typeof v === "number") return String(Math.round(v * 100) / 100);
+  const safe = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
+  return /[",\r\n]/.test(safe) || safe !== v ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+
+/** Every trade as CSV, oldest first. The header says the trades are simulated. */
+export function tradesCsv(trades: CsvTrade[]): string {
+  const head = ["Date", "Side", "Symbol", "Shares", "Price", "Type", "Stop-loss", "Take-profit", "Realized P&L", "Process score", "Reason", "Simulated"];
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const when = (t: number) => {
+    const d = new Date(t);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  };
+  const rows = [...trades]
+    .sort((a, b) => a.at - b.at)
+    .map((t) => [when(t.at), t.side === "buy" ? "Buy" : "Sell", cell(t.symbol), cell(t.qty), cell(t.price), ROLE_WORD[t.role] ?? cell(t.role), cell(t.stopLoss), cell(t.takeProfit), cell(t.realizedPnl), cell(t.score), cell(t.thesis), "Yes"].join(","));
+  return [head.join(","), ...rows].join("\r\n") + "\r\n";
+}
+
+export function tradesCsvFilename(d = new Date()) {
+  return exportFilename(d).replace("vantage-data-", "vantage-simulated-trades-").replace(/\.json$/, ".csv");
+}
+
+export function downloadTradesCsv(trades: CsvTrade[]) {
+  const blob = new Blob([tradesCsv(trades)], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = tradesCsvFilename();
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

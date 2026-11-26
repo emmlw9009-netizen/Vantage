@@ -12,6 +12,7 @@ const NAV = [
   { href: "/lessons", label: "Lessons" },
   { href: "/tools/position-size-calculator", label: "Calculators" },
   { href: "/community", label: "Community" },
+  { href: "/pricing", label: "Pricing" },
 ] as const;
 
 export function PublicHeader() {
@@ -24,7 +25,7 @@ export function PublicHeader() {
         </Link>
         <nav aria-label="Site" className="flex items-center gap-1">
           {NAV.map((n) => (
-            <Link key={n.href} href={n.href} className="hidden min-h-10 items-center px-3 text-[15px] font-medium text-ink-2 hover:text-ink sm:inline-flex">
+            <Link key={n.href} href={n.href} className="hidden min-h-10 items-center px-3 text-[15px] font-medium text-ink-2 hover:text-ink md:inline-flex">
               {n.label}
             </Link>
           ))}
@@ -57,6 +58,11 @@ export function PublicFooter() {
           <li>
             <Link href="/tools/reward-risk-calculator" className="link inline-flex min-h-10 items-center t-small">
               Reward to risk calculator
+            </Link>
+          </li>
+          <li>
+            <Link href="/pricing" className="link inline-flex min-h-10 items-center t-small">
+              Pricing
             </Link>
           </li>
         </ul>

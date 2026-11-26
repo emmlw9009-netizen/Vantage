@@ -27,7 +27,10 @@ export default function Privacy() {
       <S id="data" title="2. What data we handle">
         <h3>Stored in your browser</h3>
         <p>
-          The app saves the following in your browser’s localStorage on your device: the display name and handle you enter, your experience level and goal, your agreement record (the version of the terms and when you accepted), your simulated cash, positions, orders and trades, lesson progress, XP and missions, watchlist, community posts and comments you write, your chat history with Nova, simulated market prices, and your theme choice. We do not store this data on our servers. It stays on your device until you delete it (see section 8).
+          The app saves the following in your browser’s localStorage on your device: the display name and handle you enter, your experience level and goal, your agreement record (the version of the terms and when you accepted), your simulated cash, positions, orders and trades, lesson progress, XP and missions, watchlist, community posts and comments you write, your chat history with Nova, your plan (Free, or the plan you are previewing in test mode) with how many trades and coach messages you used today, simulated market prices, and your theme choice. We do not store this data on our servers. It stays on your device until you delete it (see section 8).
+        </p>
+        <p>
+          If you opened {BRAND.name} from an invite link, the referral code in that link is stored in your browser too. It is not linked to any account and identifies no one.
         </p>
         <h3>Sent to our AI provider, when the AI coach is on</h3>
         <p>

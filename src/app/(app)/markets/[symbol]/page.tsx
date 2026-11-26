@@ -6,7 +6,9 @@ import { useMemo, useState } from "react";
 import { TICKER_MAP } from "@/lib/market-data";
 import type { Bar } from "@/lib/market-data";
 import { useMarket, getHistory } from "@/store/market";
-import { useApp } from "@/store/app";
+import { useApp, usePlan } from "@/store/app";
+import { can } from "@/lib/plans";
+import { PaywallDialog, PlanTag } from "@/components/paywall";
 import { PriceChart } from "@/components/price-chart";
 import { OrderTicket } from "@/components/order-ticket";
 import { ReviewCard } from "@/components/review-card";
@@ -49,6 +51,9 @@ export default function SymbolPage() {
   const toggleWatch = useApp((s) => s.toggleWatch);
   const [range, setRange] = useState<Range>("1D");
   const [showMa, setShowMa] = useState(false);
+  const plan = usePlan();
+  const maAllowed = can(plan, "ma-overlay");
+  const [maPaywall, setMaPaywall] = useState(false);
   const [justFilled, setJustFilled] = useState<string | null>(null);
 
   const hist = useMemo(() => (t ? getHistory(symbol) : []), [t, symbol]);
@@ -76,7 +81,7 @@ export default function SymbolPage() {
   const shown = justFilled ? trades.find((x) => x.id === justFilled) : symTrades[0];
   const rangeStart = data[0]?.c ?? price;
   const ma50 = ma[ma.length - 1]?.c ?? 0;
-  const maOn = showMa && range !== "1D";
+  const maOn = maAllowed && showMa && range !== "1D";
 
   return (
     <div>
@@ -114,12 +119,20 @@ export default function SymbolPage() {
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
               <Segmented label="Chart range" value={range} onChange={setRange} options={(["1D", "1M", "3M", "1Y"] as Range[]).map((r) => ({ value: r, label: r }))} />
-              {range !== "1D" && (
-                <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 t-small text-ink">
-                  <input type="checkbox" checked={showMa} onChange={(e) => setShowMa(e.target.checked)} className="size-5 accent-[var(--ink)]" />
-                  Show 50-day average
-                </label>
-              )}
+              {range !== "1D" &&
+                (maAllowed ? (
+                  <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 t-small text-ink">
+                    <input type="checkbox" checked={showMa} onChange={(e) => setShowMa(e.target.checked)} className="size-5 accent-[var(--ink)]" />
+                    Show 50-day average
+                  </label>
+                ) : (
+                  <button onClick={() => setMaPaywall(true)} aria-haspopup="dialog" className="inline-flex min-h-10 items-center gap-2 rounded-md t-small text-ink">
+                    <span aria-hidden className="block size-5 rounded-[4px] border border-edge" />
+                    Show 50-day average
+                    <PlanTag feature="ma-overlay" />
+                  </button>
+                ))}
+              {maPaywall && <PaywallDialog gate="ma" onClose={() => setMaPaywall(false)} />}
             </div>
             <div className="mt-4">
               <PriceChart

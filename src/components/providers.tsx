@@ -91,10 +91,23 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   // Test-only price driver. Exists only when the verify script sets window.__VANTAGE_TEST__ before load; users never have it.
   useEffect(() => {
-    const w = window as unknown as { __VANTAGE_TEST__?: boolean; __vantageTest?: { setPrices: (p: Record<string, number>) => void; modules: unknown; toast: (t: { title: string; body?: string; tone?: "default" | "good" | "warn" | "risk" }) => void } };
+    type PlaceInput = Parameters<ReturnType<typeof useApp.getState>["placeOrder"]>[0];
+    const w = window as unknown as {
+      __VANTAGE_TEST__?: boolean;
+      __vantageTest?: {
+        setPrices: (p: Record<string, number>) => void;
+        modules: unknown;
+        toast: (t: { title: string; body?: string; tone?: "default" | "good" | "warn" | "risk" }) => void;
+        placeOrder: (o: PlaceInput) => Promise<ReturnType<ReturnType<typeof useApp.getState>["placeOrder"]>>;
+        noteCoach: () => Promise<{ ok: boolean }>;
+      };
+    };
     if (!w.__VANTAGE_TEST__) return;
     w.__vantageTest = {
       modules: { preflightChecks, analyzeTrade, tradeChecks, missionDone },
+      // the same locked paths the ticket and the coach use, so verify can fire them from two tabs at once
+      placeOrder: (o) => withWriteLock(() => useApp.getState().placeOrder(o)),
+      noteCoach: () => withWriteLock(() => useApp.getState().noteCoachMessage()),
       toast: (t: { title: string; body?: string; tone?: "default" | "good" | "warn" | "risk" }) => useToast.getState().push(t),
       setPrices: (p) => {
         useMarket.setState((m) => ({ prices: { ...m.prices, ...p } }));

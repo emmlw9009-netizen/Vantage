@@ -51,8 +51,12 @@ const LEGAL_ROUTES = [
   ["/copyright", "Copyright and DMCA policy"],
   ["/accessibility", "Accessibility statement"],
 ];
-const ROUTES = ["/", "/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", "/learn", "/learn/position-sizing", "/learn/risk-reward", "/learn/trends-and-candles", "/coach", "/community", "/journal", "/settings", "/lessons", "/lessons/position-sizing", "/tools/position-size-calculator", "/tools/reward-risk-calculator", "/share/score?s=92&l=Disciplined&sym=NVDA&side=buy", ...LEGAL_ROUTES.map((r) => r[0])];
-const TERMS_VERSION = "2026-11-24";
+const ROUTES = ["/", "/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", "/learn", "/learn/position-sizing", "/learn/risk-reward", "/learn/trends-and-candles", "/coach", "/community", "/journal", "/settings", "/lessons", "/lessons/position-sizing", "/tools/position-size-calculator", "/tools/reward-risk-calculator", "/share/score?s=92&l=Disciplined&sym=NVDA&side=buy", "/pricing", "/upgrade", "/debrief", ...LEGAL_ROUTES.map((r) => r[0])];
+// the current terms version, read from the one source of truth so a legal update never leaves verify behind
+const TERMS_VERSION = /termsVersion:\s*"([^"]+)"/.exec(fs.readFileSync(path.join(__dirname, "../src/lib/legal.ts"), "utf8"))[1];
+/** Task 10 copy that must appear verbatim (plan, owner decision). */
+const RENEWAL = "Billed monthly. Renews automatically until you cancel. Cancel anytime in Settings.";
+const TEST_MODE = "Payments aren't live yet. You can preview this plan in test mode at no charge.";
 /** Onboarding step 1 now requires the consent checkbox before Continue or Skip. */
 async function consent(page) {
   await page.getByLabel(/I.m 18 or older/).check();
@@ -145,10 +149,25 @@ function tokenContrast() {
   await page.getByText("A little").click();
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: "Start trading" }).click();
+  // writes are batched by store/sync.ts (about 50 ms): wait for this one to land before reading storage
+  await waitFor(async () => !!(await state(page))?.profile?.onboarded, 3000, 50);
   let s = await state(page);
   check("onboarding saves profile", s.profile.onboarded && s.profile.name === "Alex" && s.profile.experience === "some");
   check("starts with $100,000 cash", s.cash === 100000);
   check("onboarding stores consent with version and timestamp", s.profile.consent?.version === TERMS_VERSION && !isNaN(Date.parse(s.profile.consent?.acceptedAt)), JSON.stringify(s.profile.consent));
+  check("a new profile starts on the Free plan", s.profile.plan === "free");
+
+  // Task 10: the core flow runs on Premium (test mode, set here at the start) so the Free daily limits never cap it
+  await page.goto(`${BASE}/upgrade`);
+  await page.getByRole("button", { name: "Preview Premium" }).first().click();
+  const tmDialog = page.getByTestId("test-mode-dialog");
+  await tmDialog.waitFor({ timeout: 8000 });
+  const tmText = await tmDialog.innerText();
+  check("Preview Premium opens the test-mode dialog first: payments not live, no charge, renewal terms shown", tmText.includes(TEST_MODE) && tmText.includes(RENEWAL), tmText.slice(0, 120));
+  await page.getByRole("dialog").getByRole("button", { name: "Preview Premium" }).click();
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem("sp-app")).state.profile.plan === "premium", null, { timeout: 8000 });
+  s = await state(page);
+  check("previewing Premium sets profile.plan, the test-mode source and the change time", s.profile.plan === "premium" && s.profile.planSource === "test" && !isNaN(Date.parse(s.profile.planChangedAt)), JSON.stringify({ plan: s.profile.plan, src: s.profile.planSource }));
 
   // disciplined bracket trade
   await page.goto(`${BASE}/markets/NVDA`);
@@ -272,6 +291,7 @@ function tokenContrast() {
   const answers = [1, 2]; // correct answers for this lesson
   for (let i = 0; i < (await fs_.count()); i++) await fs_.nth(i).locator("button").nth(answers[i]).click();
   await page.getByRole("button", { name: "Check answers" }).click();
+  await waitFor(async () => (await state(page)).completedLessons["position-sizing"]?.quiz === 1, 3000, 50);
   s = await state(page);
   check("lesson completion + perfect quiz awards 75 XP", s.completedLessons["position-sizing"]?.quiz === 1 && s.xp - xpBefore >= 75, `+${s.xp - xpBefore} XP`);
 
@@ -897,7 +917,7 @@ function tokenContrast() {
     const p = await c.newPage();
     watch(p, "titles");
     const titles = {};
-    for (const r of ["/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", "/learn", "/learn/position-sizing", "/coach", "/community", "/journal", "/settings"]) {
+    for (const r of ["/dashboard", "/markets", "/markets/NVDA", "/markets/SPY", "/learn", "/learn/position-sizing", "/coach", "/community", "/journal", "/settings", "/upgrade", "/debrief"]) {
       await p.goto(`${BASE}${r}`);
       titles[r] = await p.title();
     }
@@ -1307,8 +1327,9 @@ function tokenContrast() {
     const p = await c.newPage();
     watch(p, "settings");
     await p.goto(`${BASE}/settings`);
-    await p.getByText("Plan: Free").waitFor({ timeout: 8000 }).catch(() => {});
-    check("settings shows the plan placeholder", await p.getByText("Plan: Free").isVisible());
+    // the core flow runs on Premium (test mode), so Settings shows that plan and labels it
+    await p.getByText("Plan: Premium").waitFor({ timeout: 8000 }).catch(() => {});
+    check("settings shows the current plan (Premium, labelled test mode)", (await p.getByText("Plan: Premium").isVisible()) && (await p.locator("#membership").getByText("Test mode", { exact: true }).isVisible()));
     const [dl] = await Promise.all([p.waitForEvent("download"), p.getByRole("button", { name: "Export my data" }).click()]);
     const file = await dl.path();
     const json = JSON.parse(fs.readFileSync(file, "utf8"));
@@ -1317,6 +1338,8 @@ function tokenContrast() {
     check("theme choice applies", (await p.evaluate(() => document.documentElement.dataset.theme)) === "light");
     await p.getByRole("button", { name: "Reset practice account" }).click();
     await p.getByRole("dialog").getByRole("button", { name: "Reset account" }).click();
+    // writes are batched by store/sync.ts (about 50 ms), so give the reset its flush before reading storage
+    await waitFor(async () => (await state(p)).trades.length === 0, 3000, 50);
     const rs = await state(p);
     check("reset practice account restores cash, clears trades, keeps profile and consent", rs.cash === 100000 && rs.trades.length === 0 && rs.profile.onboarded === true && rs.profile.consent?.version === TERMS_VERSION);
     await p.getByRole("button", { name: "Delete all my data" }).click();
@@ -1505,6 +1528,7 @@ function tokenContrast() {
     const p2b = p.locator("article", { hasText: "bought TSLA after a +7% day" });
     await p2b.getByRole("button", { name: /^Comments/ }).click();
     await p2b.getByRole("button", { name: "Report comment" }).first().click();
+    await waitFor(async () => (await state(p)).reported?.["p2-0"] === true, 3000, 50);
     check("Report on a comment hides that comment only", (await p.getByText("Respect for posting this").count()) === 0 && (await p2b.getByText("Great reflection").count()) === 1 && (await state(p)).reported?.["p2-0"] === true);
     // leaderboard and challenges
     await p.getByRole("tab", { name: "Leaderboard" }).click();
@@ -1548,7 +1572,8 @@ function tokenContrast() {
       }, 15000);
       const st2 = await state(p);
       const reply = (st2.comments[st2.posts[0].id] ?? []).find((cm) => cm.authorId === "u7")?.body ?? "";
-      check(`community: ${label} gets the canned Nova reply, not HTML`, nova && reply.includes("Love that you shared this") && !/<html|<!DOCTYPE|Internal Server Error|could not be found/i.test(reply), reply.slice(0, 80));
+      const why = reply ? reply.slice(0, 80) : JSON.stringify({ first: st2.posts[0]?.body?.slice(0, 32), firstAt: st2.posts[0]?.at, comments: (st2.comments[st2.posts[0]?.id] ?? []).map((cm) => cm.authorId), posts: st2.posts.length, url: p.url(), typing: await p.getByText("Nova is replying.").count(), box: await p.getByLabel("Post text").inputValue().catch(() => "?") });
+      check(`community: ${label} gets the canned Nova reply, not HTML`, nova && reply.includes("Love that you shared this") && !/<html|<!DOCTYPE|Internal Server Error|could not be found/i.test(reply), why);
       await c.close();
     }
   }
@@ -1734,6 +1759,502 @@ function tokenContrast() {
     await btn.click();
     const shared = await p.evaluate(() => window.__shared);
     check("Share score opens the Web Share API with a /share/score link: score, label, symbol, side and no money", !!shared && /\/share\/score\?s=\d+&l=[A-Za-z+%0-9]+&sym=SPY&side=buy$/.test(shared.url) && !/pnl|profit|return/i.test(shared.url + shared.text), JSON.stringify(shared));
+    await c.close();
+  }
+
+  // ---------------- Task 10: memberships, daily limits, honest paywalls ----------------
+  console.log("\nMemberships and paywalls (Task 10)");
+  /** Every paywall, pricing and dialog text seen below, scanned at the end for confirmshaming and fake-charge wording. */
+  const planCopy = [];
+  const grabPaywalls = async (p) => {
+    for (const t of await p.locator("[data-paywall]").allInnerTexts()) planCopy.push(t);
+  };
+  const onboardAs = async (p, name) => {
+    await p.goto(`${BASE}/dashboard`);
+    await p.getByPlaceholder("Your first name").fill(name);
+    await consent(p);
+    await p.getByRole("button", { name: "Skip" }).click();
+    await p.waitForFunction(() => JSON.parse(localStorage.getItem("sp-app") || "{}").state?.profile?.onboarded === true);
+  };
+  const todayCount = (st, key) => {
+    const d = new Date();
+    const k = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    return (st.usage?.[key] ?? []).filter((x) => {
+      const e = new Date(x.at);
+      return `${e.getFullYear()}-${e.getMonth()}-${e.getDate()}` === k;
+    }).length;
+  };
+  /** Every visible button that starts a plan must have the renewal terms in the same plan cell. */
+  const renewalProblems = (p) =>
+    p.evaluate((renewal) => {
+      const vis = (el) => {
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden";
+      };
+      const out = [];
+      const buttons = [...document.querySelectorAll("button")].filter((b) => vis(b) && /^Preview (Premium|Elite)$/.test(b.textContent.trim()));
+      for (const b of buttons) {
+        const cell = b.closest("[data-plan-cta]");
+        const txt = cell ? [...cell.querySelectorAll("[data-renewal]")].filter(vis).map((e) => e.textContent).join(" ") : "";
+        if (!txt.includes(renewal)) out.push(`${b.textContent.trim()} has no renewal text beside it`);
+      }
+      return { n: buttons.length, out };
+    }, RENEWAL);
+  {
+    // plans.ts, merge and CSV, compiled from source and run here: the entitlement rules themselves
+    const ts = require("typescript");
+    const vm = require("vm");
+    const cache = {};
+    const load = (rel) => {
+      const file = path.join(__dirname, "../src", rel);
+      if (cache[file]) return cache[file];
+      const src = ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+      const mod = { exports: {} };
+      cache[file] = mod.exports;
+      const req = (r) => {
+        if (r === "@/store/sync") return { markDeleted() {}, withWriteLock: (f) => Promise.resolve(f()) };
+        if (r.startsWith("./")) return load(path.join(path.dirname(rel), r.slice(2) + ".ts"));
+        if (r.startsWith("@/")) return load(r.slice(2) + ".ts");
+        throw new Error(`unexpected import ${r}`);
+      };
+      vm.runInNewContext(src, { module: mod, exports: mod.exports, require: req, Blob: function () {}, URL: {}, document: {} });
+      return (cache[file] = mod.exports);
+    };
+    const P = load("lib/plans.ts");
+    const feats = ["unlimited-trades", "all-lessons", "lesson-tools", "unlimited-coach", "journal-insights", "ma-overlay", "challenges", "csv-export", "weekly-debrief", "learning-plan", "elite-badge"];
+    const elite = ["weekly-debrief", "learning-plan", "elite-badge"];
+    const matrixOk = feats.every((f) => !P.can("free", f) && P.can("premium", f) === !elite.includes(f) && P.can("elite", f));
+    check("plans.ts: Free has none of the paid features, Premium has all but the Elite three, Elite has everything", matrixOk);
+    check("plans.ts: an unknown or tampered plan is Free", ["ultra", "Premium", null, undefined, {}, "__proto__", 1].every((x) => P.planOf(x) === "free" && !P.can(x, "unlimited-trades")));
+    check(
+      "plans.ts: Free buys stop at 10 a day, sells are always allowed and still count, Premium has no limit",
+      P.orderGate("free", "buy", 9).allowed && !P.orderGate("free", "buy", 10).allowed && P.orderGate("free", "sell", 50).allowed && P.orderGate("free", "sell", 50).counts && P.orderGate("premium", "buy", 500).allowed && P.tradesLeft("premium", []) === null,
+    );
+    const now = Date.now();
+    const mid = new Date(now);
+    mid.setHours(0, 0, 0, 0);
+    const log = [{ id: "a", at: mid.getTime() - 60_000 }, { id: "b", at: mid.getTime() }, { id: "c", at: now }];
+    check("plans.ts: the daily count uses the local date (a stamp at 23:59 yesterday doesn't count, 00:00 today does)", P.usedToday(log, now) === 2 && P.stampToday(log, "d", now).length === 3 && P.tradesLeft("free", Array.from({ length: 14 }, (_, i) => ({ id: String(i), at: now }))) === 0);
+    check("plans.ts: modules 1 and 2 are free, the rest need Premium", P.canOpenLesson("free", "position-sizing") && P.canOpenLesson("free", "diversification") && !P.canOpenLesson("free", "trends-and-candles") && !P.canOpenLesson("free", "build-your-plan") && P.canOpenLesson("premium", "build-your-plan") && P.canOpenLesson("free", "no-such-lesson"));
+    check("plans.ts: Free coach messages stop at 10; Premium and Elite are unlimited", P.coachGate("free", 9).allowed && !P.coachGate("free", 10).allowed && P.coachGate("premium", 999).allowed && P.coachLeft("elite", []) === null);
+    check(
+      "plans.ts: owner prices (Free $0, Premium $30 most popular, Elite $60), verbatim renewal and test-mode text, no test switch over a server plan",
+      P.PLANS.free.price === 0 && P.PLANS.premium.price === 30 && P.PLANS.premium.popular === true && P.PLANS.elite.price === 60 && !P.PLANS.elite.popular && P.RENEWAL_TEXT === RENEWAL && P.TEST_MODE_TEXT === TEST_MODE && P.canPreviewInTestMode("test") && !P.canPreviewInTestMode("server"),
+    );
+    const M = load("store/merge.ts");
+    const merged = M.merge3({ usage: { tradeLog: [{ id: "a", at: 1 }] } }, { usage: { tradeLog: [{ id: "a", at: 1 }, { id: "b", at: 2 }] } }, { usage: { tradeLog: [{ id: "a", at: 1 }, { id: "c", at: 3 }] } });
+    check("two tabs' usage logs merge by id: no stamp is lost or doubled", JSON.stringify(merged.usage.tradeLog.map((x) => x.id)) === '["a","b","c"]', JSON.stringify(merged));
+    const D = load("lib/data-controls.ts");
+    const csv = D.tradesCsv([{ at: now, side: "buy", symbol: "NVDA", qty: 3, price: 187.5, role: "entry", stopLoss: 180, score: 92, thesis: '=HYPERLINK("http://x") and a "quote", too' }, { at: now - 1000, side: "sell", symbol: "KO", qty: 2, price: 70.1, role: "stop-loss", realizedPnl: -6.25, score: 60 }]);
+    const lines = csv.trim().split("\r\n");
+    check("CSV export: a header, one row per trade (oldest first), formula text neutralised and quotes escaped", lines.length === 3 && lines[0].startsWith("Date,Side,Symbol,Shares,Price") && lines[1].includes("Stop-loss (automatic)") && lines[1].includes("-6.25") && lines[2].includes(`"'=HYPERLINK(""http://x"") and a ""quote"", too"`), lines.join(" | "));
+  }
+  let eliteState;
+  {
+    // Free plan, one user, desktop light: the daily trade limit end to end
+    const c = await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: "light", reducedMotion: "reduce", acceptDownloads: true });
+    await c.addInitScript(() => {
+      window.__VANTAGE_TEST__ = true;
+    });
+    const p = await c.newPage();
+    watch(p, "free-plan");
+    await onboardAs(p, "Pat");
+    await p.goto(`${BASE}/markets/KO`);
+    await p.locator("#qty").waitFor();
+    const allowance = p.getByTestId("trade-allowance");
+    check("Free: the ticket shows 10 of 10 free trades left today", (await allowance.innerText()).trim() === "10 of 10 free trades left today");
+    const trades = async () => (await state(p)).trades.filter((t) => t.role === "entry" || t.role === "exit").length;
+    // order 1: a buy with a stop-loss, so an automatic exit can fire later at the limit
+    await p.locator("#qty").fill("1");
+    await p.getByRole("button", { name: "−5%" }).click();
+    await p.getByRole("button", { name: /^Buy 1 KO$/ }).click();
+    await waitFor(async () => (await state(p)).orders.some((o) => o.role === "stop-loss" && o.status === "open"), 8000, 100);
+    // orders 2 to 9: market buys
+    for (let i = 0; i < 8; i++) {
+      const q = i % 2 ? "1" : "2";
+      const n0 = await trades();
+      await p.locator("#qty").fill(q);
+      await p.getByRole("button", { name: new RegExp(`^Buy ${q} KO$`) }).click();
+      await waitFor(async () => (await trades()) === n0 + 1, 8000, 100);
+    }
+    check("Free: after 9 orders the ticket shows 1 of 10 left", (await allowance.innerText()).trim() === "1 of 10 free trades left today", await allowance.innerText());
+    // order 10: a limit buy far under the market counts when it is placed, not when it fills
+    const ko = await price(p, "KO");
+    await p.getByRole("radio", { name: "Limit" }).click();
+    await p.locator("#trigger").fill((ko * 0.5).toFixed(2));
+    await p.locator("#qty").fill("3");
+    await p.getByRole("button", { name: "Place limit buy" }).click();
+    await waitFor(async () => (await state(p)).orders.some((o) => o.type === "limit" && o.role === "entry" && o.status === "open"), 8000, 100);
+    let st = await state(p);
+    check("Free: 10 orders placed today are recorded (a limit buy counts when placed)", todayCount(st, "tradeLog") === 10, `${todayCount(st, "tradeLog")} stamps`);
+    const pw = p.locator('[data-paywall="trades"]');
+    await pw.waitFor({ timeout: 5000 }).catch(() => {});
+    check("Free: the 11th buy shows the paywall in the ticket instead of a Buy button", (await pw.isVisible()) && (await p.getByRole("button", { name: /^(Buy \d+ KO|Place limit buy)$/ }).count()) === 0 && (await pw.getByRole("link", { name: "See plans" }).getAttribute("href")) === "/upgrade");
+    await grabPaywalls(p);
+    await p.screenshot({ path: `${SHOTS}/t10-paywall-ticket-desktop-light.png`, fullPage: true });
+    const refused = await p.evaluate(async (px) => [await window.__vantageTest.placeOrder({ symbol: "KO", side: "buy", type: "market", qty: 1 }), await window.__vantageTest.placeOrder({ symbol: "KO", side: "buy", type: "limit", qty: 1, limitPrice: px })], Number((ko * 0.5).toFixed(2)));
+    st = await state(p);
+    check("Free: at the limit the store itself refuses a market buy and a limit buy, and records nothing", refused.every((r) => !r.ok && r.code === "limit") && todayCount(st, "tradeLog") === 10, JSON.stringify(refused));
+    // selling to close is always allowed at the limit, and it still counts
+    await pw.getByRole("button", { name: "Sell instead" }).click();
+    await p.getByRole("radio", { name: "Market" }).click();
+    await p.locator("#qty").fill("1");
+    const sellsBefore = (await state(p)).trades.filter((t) => t.side === "sell" && t.role === "exit").length;
+    await p.getByRole("button", { name: /^Sell 1 KO$/ }).click();
+    await waitFor(async () => (await state(p)).trades.filter((t) => t.side === "sell" && t.role === "exit").length === sellsBefore + 1, 8000, 100);
+    st = await state(p);
+    check("Free: selling a held position at the limit goes through, and still counts", st.trades.filter((t) => t.side === "sell" && t.role === "exit").length === sellsBefore + 1 && todayCount(st, "tradeLog") === 11 && /^0 of 10 free trades left today\. Selling to close a position is always allowed$/.test((await allowance.innerText()).trim()), (await allowance.innerText()).trim());
+    // an automatic stop-loss exit at the limit runs and does not count
+    const leg = st.orders.find((o) => o.role === "stop-loss" && o.status === "open");
+    await p.evaluate((px) => window.__vantageTest.setPrices({ KO: px }), (leg?.stopPrice ?? ko * 0.95) * 0.99);
+    const exited = await waitFor(async () => (await state(p)).trades.some((t) => t.role === "stop-loss"), 8000, 100);
+    st = await state(p);
+    check("Free: an automatic stop-loss exit at the limit still executes and is not counted", exited && todayCount(st, "tradeLog") === 11, `${todayCount(st, "tradeLog")} stamps`);
+    // local midnight: yesterday's orders no longer count
+    await p.evaluate(() => {
+      const raw = JSON.parse(localStorage.getItem("sp-app"));
+      raw.state.usage.tradeLog = raw.state.usage.tradeLog.map((x) => ({ ...x, at: x.at - 24 * 60 * 60 * 1000 }));
+      localStorage.setItem("sp-app", JSON.stringify(raw));
+      localStorage.setItem("sp-app:stamp", `manual-${Date.now()}`);
+    });
+    await p.reload();
+    await p.getByRole("radio", { name: "Buy" }).click();
+    await p.getByTestId("trade-allowance").waitFor();
+    check("Free: the count resets at local midnight (10 of 10 left, Buy is back)", (await p.getByTestId("trade-allowance").innerText()).trim() === "10 of 10 free trades left today" && (await p.getByRole("button", { name: /^Buy \d+ KO$/ }).isVisible()));
+
+    // Free paywalls in context
+    await p.goto(`${BASE}/learn`);
+    await p.getByRole("heading", { name: /Market foundations/ }).waitFor();
+    const lockedRows = await p.locator("main ol li:has(.tag-plan)").count();
+    const lockedMods = await p.locator("main h2:has(.tag-plan)").count();
+    check("Free: Learn tags the 12 lessons in modules 3 to 6 (and those 4 modules) as Premium, with no lock icons", lockedRows === 12 && lockedMods === 4 && (await p.locator("main svg.lucide-lock").count()) === 0, `${lockedRows} rows, ${lockedMods} modules`);
+    check("Free: the learning plan slot shows the Elite paywall, quietly", await p.locator('[data-paywall="learning-plan"]').isVisible());
+    await grabPaywalls(p);
+    await p.goto(`${BASE}/learn/trends-and-candles`);
+    const lp = p.locator('[data-paywall="lesson"]');
+    await lp.waitFor({ timeout: 8000 }).catch(() => {});
+    check("Free: a module 3 lesson opens a preview (first section only) and the paywall, with no quiz or tool", (await lp.isVisible()) && (await p.locator(".prose-lesson section").count()) === 1 && (await p.getByText("Check your understanding").count()) === 0 && (await p.getByTestId("widget-trend-spotter").count()) === 0);
+    check("Free: the lesson paywall points to the free public text and back to the course", (await lp.getByRole("link", { name: "public lesson page" }).getAttribute("href")) === "/lessons/trends-and-candles" && (await lp.getByRole("link", { name: "Back to the course" }).getAttribute("href")) === "/learn");
+    await grabPaywalls(p);
+    await p.screenshot({ path: `${SHOTS}/t10-paywall-lesson-desktop-light.png`, fullPage: true });
+    await p.goto(`${BASE}/learn/position-sizing`);
+    await p.locator('[data-paywall="tools"]').waitFor({ timeout: 8000 }).catch(() => {});
+    check("Free: a free lesson keeps its quiz, and its interactive tool shows the paywall", (await p.locator('[data-paywall="tools"]').isVisible()) && (await p.getByTestId("widget-position-size").count()) === 0 && (await p.getByText("Check your understanding").isVisible()));
+    await p.locator('[data-paywall="tools"]').getByRole("button", { name: "Not now" }).click();
+    check("Free: Not now folds the paywall into one quiet line", (await p.locator('[data-paywall="tools"][data-collapsed]').isVisible()) && (await p.getByRole("link", { name: "See plans" }).count()) >= 1);
+    await grabPaywalls(p);
+    await p.goto(`${BASE}/markets/NVDA`);
+    await p.getByRole("radio", { name: "1M" }).click();
+    await p.getByRole("button", { name: /Show 50-day average/ }).click();
+    const maDlg = p.getByRole("dialog");
+    await maDlg.waitFor({ timeout: 5000 }).catch(() => {});
+    check("Free: the 50-day average toggle opens the paywall, and the overlay stays off", (await maDlg.locator('[data-paywall="ma"]').isVisible()) && (await p.getByRole("list", { name: "Legend" }).count()) === 0);
+    await grabPaywalls(p);
+    await maDlg.getByRole("button", { name: "Not now" }).click();
+    check("Free: Not now closes the paywall dialog", (await p.getByRole("dialog").count()) === 0);
+    await p.goto(`${BASE}/journal`);
+    await p.getByTestId("mistakes").waitFor();
+    const mz = await p.getByTestId("mistakes").innerText();
+    check("Free: the journal's mistakes chart is a preview (real categories, no bars or counts) with the paywall", (await p.locator('[data-paywall="mistakes"]').isVisible()) && !/\d+ of \d+/.test(mz) && (await p.getByTestId("mistakes-preview").count()) === 1 && (await p.getByTestId("mistakes").locator(".bg-series-1").count()) === 0);
+    check("Free: Patterns Nova sees shows the paywall instead of the patterns", (await p.locator('[data-paywall="patterns"]').isVisible()) && (await p.locator('aside[aria-labelledby="patterns-h"] .nova-note').count()) === 0);
+    await grabPaywalls(p);
+    await p.screenshot({ path: `${SHOTS}/t10-paywall-journal-desktop-light.png`, fullPage: true });
+    await p.getByRole("button", { name: "Export CSV" }).click();
+    await p.getByRole("dialog").locator('[data-paywall="csv"]').waitFor({ timeout: 5000 }).catch(() => {});
+    check("Free: Export CSV opens the paywall and downloads nothing", await p.getByRole("dialog").locator('[data-paywall="csv"]').isVisible());
+    await grabPaywalls(p);
+    await p.keyboard.press("Escape");
+    await p.goto(`${BASE}/community`);
+    await p.getByRole("tab", { name: "Challenges" }).click();
+    await p.getByRole("button", { name: "Join challenge" }).first().click();
+    await p.getByRole("dialog").locator('[data-paywall="challenges"]').waitFor({ timeout: 5000 }).catch(() => {});
+    st = await state(p);
+    check("Free: Join challenge opens the paywall and joins nothing", (await p.getByRole("dialog").locator('[data-paywall="challenges"]').isVisible()) && !Object.keys(st.following ?? {}).some((k) => k.startsWith("challenge:")));
+    await grabPaywalls(p);
+    await p.keyboard.press("Escape");
+    await p.goto(`${BASE}/debrief`);
+    await p.locator('[data-paywall="debrief"]').waitFor({ timeout: 8000 }).catch(() => {});
+    check("Free: /debrief shows the Elite paywall", (await p.locator('[data-paywall="debrief"]').isVisible()) && (await p.getByTestId("debrief-stats").count()) === 0);
+    await grabPaywalls(p);
+    // coach: the counter, then the limit
+    await p.goto(`${BASE}/coach`);
+    const coachLeftEl = p.getByTestId("coach-allowance");
+    await coachLeftEl.waitFor();
+    check("Free: the coach shows 10 of 10 free messages left today", (await coachLeftEl.innerText()).trim() === "10 of 10 free messages left today");
+    await p.getByRole("button", { name: /How do I figure out/ }).click();
+    await waitFor(async () => { const ch = (await state(p)).chat; return ch.length >= 2 && ch[ch.length - 1].content.length > 20; }, 20000, 250);
+    await p.waitForTimeout(300);
+    check("Free: sending a message counts it (9 of 10 left)", (await coachLeftEl.innerText()).trim() === "9 of 10 free messages left today", await coachLeftEl.innerText());
+    const nine = await p.evaluate(async () => { const r = []; for (let i = 0; i < 9; i++) r.push((await window.__vantageTest.noteCoach()).ok); return r; });
+    const tenth = await p.evaluate(() => window.__vantageTest.noteCoach());
+    await p.locator('[data-paywall="coach"]').waitFor({ timeout: 5000 }).catch(() => {});
+    check("Free: after 10 messages the composer becomes the paywall, and an 11th message is refused", nine.every(Boolean) && !tenth.ok && (await p.locator('[data-paywall="coach"]').isVisible()) && (await p.getByLabel("Message Nova").count()) === 0 && (await p.getByTestId("coach-allowance").innerText()).trim() === "0 of 10 free messages left today");
+    await grabPaywalls(p);
+    await p.evaluate(() => {
+      window.__vantageTest.toast({ title: "Mission done: Ask your coach a question", body: "30 XP added.", tone: "good" });
+      window.__vantageTest.toast({ title: "A second note with a longer title that wraps onto two lines", tone: "default" });
+    });
+    await p.waitForTimeout(400);
+    const coachCover = await p.evaluate(() => {
+      const toasts = [...document.querySelectorAll('[data-toaster] [role="status"], [data-toaster] [role="alert"]')].map((e) => e.getBoundingClientRect());
+      const hit = [];
+      for (const el of document.querySelectorAll('[data-paywall="coach"] h3, [data-paywall="coach"] p, [data-paywall="coach"] a, [data-paywall="coach"] button, [data-paywall="coach"] .tag')) {
+        const r = el.getBoundingClientRect();
+        if (toasts.some((t) => t.left < r.right && t.right > r.left && t.top < r.bottom && t.bottom > r.top)) hit.push((el.textContent || "").trim().slice(0, 30));
+      }
+      return { toasts: toasts.length, hit };
+    });
+    check("Free: toasts never cover the coach paywall (1440x1000)", coachCover.toasts >= 2 && coachCover.hit.length === 0, JSON.stringify(coachCover));
+    await p.screenshot({ path: `${SHOTS}/t10-paywall-coach-desktop-light.png`, fullPage: true });
+
+    // /upgrade on Free: every buy button has its renewal terms; previewing Premium unlocks the gates
+    await p.goto(`${BASE}/upgrade`);
+    await p.getByTestId("plan-ledger").waitFor();
+    const up = await renewalProblems(p);
+    check("/upgrade: the renewal terms sit beside every button that starts a plan (desktop)", up.n === 2 && up.out.length === 0, JSON.stringify(up));
+    check("/upgrade: test mode is labelled on the page", (await p.getByTestId("test-mode-note").innerText()).includes("Payments aren't live yet"));
+    planCopy.push(await p.locator("main").innerText());
+    await p.screenshot({ path: `${SHOTS}/t10-upgrade-desktop-light.png`, fullPage: true });
+    await p.getByRole("button", { name: "Preview Premium" }).first().click();
+    const dlg = p.getByTestId("test-mode-dialog");
+    await dlg.waitFor();
+    planCopy.push(await dlg.innerText());
+    const dr = await renewalProblems(p);
+    check("the test-mode dialog's Preview button has the renewal terms beside it, and says there is no charge", dr.out.length === 0 && (await dlg.innerText()).includes(TEST_MODE) && (await dlg.innerText()).includes("nothing is charged"), JSON.stringify(dr));
+    await p.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+    await p.waitForTimeout(300); // long enough for any write to have landed
+    check("Cancel in the test-mode dialog changes nothing", (await state(p)).profile.plan === "free" && (await p.getByRole("dialog").count()) === 0);
+    await p.getByRole("button", { name: "Preview Premium" }).first().click();
+    await p.getByRole("dialog").getByRole("button", { name: "Preview Premium" }).click();
+    await p.waitForFunction(() => JSON.parse(localStorage.getItem("sp-app")).state.profile.plan === "premium");
+    await p.locator("[data-toaster]").getByText(/Previewing Premium/).waitFor({ timeout: 5000 }).catch(() => {});
+    const toast = await p.locator("[data-toaster]").innerText();
+    planCopy.push(toast);
+    check("previewing shows a test-mode toast that says nothing was charged", /Previewing Premium in test mode/.test(toast) && /Nothing was charged/.test(toast), toast);
+    await p.goto(`${BASE}/learn/trends-and-candles`);
+    await p.getByText("Check your understanding").waitFor({ timeout: 8000 }).catch(() => {});
+    check("Premium: the module 3 lesson opens in full with its quiz and tool", (await p.getByText("Check your understanding").isVisible()) && (await p.getByTestId("widget-trend-spotter").isVisible()) && (await p.locator("[data-paywall]").count()) === 0);
+    await p.goto(`${BASE}/markets/NVDA`);
+    await p.getByRole("radio", { name: "1M" }).click();
+    await p.getByLabel("Show 50-day average").check();
+    check("Premium: the 50-day average overlay turns on", (await p.getByRole("list", { name: "Legend" }).getByText("50-day average").count()) === 1 && (await p.getByRole("dialog").count()) === 0);
+    check("Premium: the ticket has Buy and no daily counter", (await p.getByRole("button", { name: /^Buy \d+ NVDA$/ }).isVisible()) && (await p.getByTestId("trade-allowance").count()) === 0);
+    await p.goto(`${BASE}/journal`);
+    await p.getByTestId("mistakes").waitFor();
+    check("Premium: the journal shows mistake counts and Nova's patterns", /\d+ of \d+/.test(await p.getByTestId("mistakes").innerText()) && (await p.locator("[data-paywall]").count()) === 0 && (await p.locator('aside[aria-labelledby="patterns-h"] .nova-note').count()) === 1);
+    const [csvDl] = await Promise.all([p.waitForEvent("download"), p.getByRole("button", { name: "Export CSV" }).click()]);
+    const csvText = fs.readFileSync(await csvDl.path(), "utf8");
+    st = await state(p);
+    check("Premium: Export CSV downloads every trade as a CSV file", /^vantage-simulated-trades-\d{8}-\d{6}\.csv$/.test(csvDl.suggestedFilename()) && csvText.trim().split("\r\n").length === st.trades.length + 1 && csvText.startsWith("Date,Side,Symbol"), `${csvDl.suggestedFilename()} ${csvText.trim().split("\r\n").length - 1} rows of ${st.trades.length}`);
+    await p.goto(`${BASE}/community`);
+    await p.getByRole("tab", { name: "Challenges" }).click();
+    await p.getByRole("button", { name: "Join challenge" }).first().click();
+    check("Premium: Join challenge joins", (await p.getByRole("button", { name: "Joined" }).count()) === 1 && (await p.getByRole("dialog").count()) === 0);
+    await p.goto(`${BASE}/coach`);
+    await p.getByLabel("Message Nova").waitFor();
+    check("Premium: the coach has its composer back and no counter", (await p.getByTestId("coach-allowance").count()) === 0);
+
+    // Elite: debrief, learning plan, badge
+    await p.goto(`${BASE}/upgrade`);
+    await p.getByRole("button", { name: "Preview Elite" }).first().click();
+    await p.getByRole("dialog").getByRole("button", { name: "Preview Elite" }).click();
+    await p.waitForFunction(() => JSON.parse(localStorage.getItem("sp-app")).state.profile.plan === "elite");
+    await p.goto(`${BASE}/journal`);
+    await p.getByTestId("mistakes").waitFor();
+    const topMistake = (await p.getByTestId("mistakes").locator("li span.truncate").first().innerText()).trim();
+    await p.goto(`${BASE}/debrief`);
+    await p.getByTestId("debrief-stats").waitFor({ timeout: 8000 }).catch(() => {});
+    st = await state(p);
+    const weekTrades = st.trades.filter((t) => Date.now() - t.at < 7 * 864e5).length;
+    check("Elite: /debrief shows the last 7 days: trade count, trend, top mistakes, best and worst decision, three focus points", (await p.getByTestId("debrief-trade-count").innerText()) === String(weekTrades) && (await p.getByTestId("debrief-trend").isVisible()) && (await p.getByTestId("debrief-mistakes").getByText(topMistake).count()) >= 1 && (await p.getByText("Best decision", { exact: true }).isVisible()) && (await p.getByText("Worst decision", { exact: true }).isVisible()) && (await p.getByTestId("debrief-focus").locator("ol > li").count()) >= 1 && (await p.locator("[data-paywall]").count()) === 0, `${weekTrades} trades, top ${topMistake}`);
+    await p.screenshot({ path: `${SHOTS}/t10-debrief-desktop-light.png`, fullPage: true });
+    await p.goto(`${BASE}/learn`);
+    const plan = p.getByTestId("learning-plan");
+    await plan.waitFor({ timeout: 8000 }).catch(() => {});
+    const steps = plan.locator("ol > li");
+    const firstWhy = await steps.first().innerText().catch(() => "");
+    check("Elite: Learn opens with a learning plan built from the most frequent mistake (lessons and missions)", (await steps.count()) >= 2 && firstWhy.includes(topMistake) && (await plan.locator('a[href^="/learn/"]').count()) >= 1 && (await p.locator("main ol li:has(.tag-plan)").count()) === 0, `${await steps.count()} steps, first: ${firstWhy.replace(/\s+/g, " ")}`);
+    const planBox = await plan.boundingBox();
+    const mapBox = await p.getByRole("heading", { name: /Market foundations/ }).boundingBox();
+    check("Elite: the plan sits at the top of Learn, beside the course map on desktop", !!planBox && !!mapBox && planBox.y <= mapBox.y + 40 && planBox.x > mapBox.x, JSON.stringify({ plan: planBox, map: mapBox }));
+    await p.screenshot({ path: `${SHOTS}/t10-learn-plan-desktop-light.png`, fullPage: true });
+    await p.goto(`${BASE}/community`);
+    await p.getByLabel("Post text").fill("Elite badge check: sized from the stop at 1% risk.");
+    await p.getByRole("button", { name: "Post", exact: true }).click();
+    await p.locator("article").first().locator("[data-elite-badge]").waitFor({ timeout: 5000 }).catch(() => {});
+    const badgeOnPost = await p.locator("article").first().locator("[data-elite-badge]").count();
+    const badgeOnDemo = await p.locator("article:has([data-demo]) [data-elite-badge]").count();
+    await p.getByRole("tab", { name: "Leaderboard" }).click();
+    const lbBadges = await p.locator("ol > li [data-elite-badge]").count();
+    const myRowBadge = await p.locator("ol > li").filter({ hasText: "Pat" }).locator("[data-elite-badge]").count();
+    check("Elite: the badge shows on your own post and your leaderboard row, never on demo members", badgeOnPost === 1 && badgeOnDemo === 0 && lbBadges === 1 && myRowBadge === 1, JSON.stringify({ badgeOnPost, badgeOnDemo, lbBadges, myRowBadge }));
+    eliteState = await c.storageState();
+
+    // cancel: one click in Settings, back to Free
+    await p.goto(`${BASE}/settings`);
+    await p.getByText("Plan: Elite").waitFor();
+    planCopy.push(await p.locator("#membership").innerText());
+    check("Settings labels the preview as test mode with no charge", (await p.locator("#membership").getByText("Test mode", { exact: true }).isVisible()) && /nothing is charged/.test(await p.getByTestId("plan-detail").innerText()));
+    await p.getByRole("button", { name: "Cancel plan" }).click();
+    await p.waitForFunction(() => JSON.parse(localStorage.getItem("sp-app")).state.profile.plan === "free", null, { timeout: 5000 }).catch(() => {});
+    st = await state(p);
+    check("Cancel plan works in one click: no confirm step, back to Free, toast says so", st.profile.plan === "free" && (await p.getByRole("dialog").count()) === 0 && (await p.getByText("Plan cancelled. You're on Free.").isVisible()) && (await p.getByText("Plan: Free").isVisible()) && (await p.getByRole("button", { name: "Cancel plan" }).count()) === 0);
+    await p.goto(`${BASE}/debrief`);
+    check("after cancelling, Elite pages are locked again", await p.locator('[data-paywall="debrief"]').isVisible());
+    await c.close();
+  }
+  {
+    // Elite pages on a phone in dark mode: screenshots, no overflow, accessibility smoke
+    const c = await browser.newContext({ ...devices["iPhone 14"], colorScheme: "dark", reducedMotion: "reduce", storageState: eliteState });
+    const p = await c.newPage();
+    watch(p, "elite-phone");
+    const issues = [];
+    for (const [r, shot] of [["/debrief", "t10-debrief-phone-dark"], ["/learn", "t10-learn-plan-phone-dark"], ["/upgrade", "t10-upgrade-phone-dark"]]) {
+      await p.goto(`${BASE}${r}`);
+      await p.waitForTimeout(700);
+      const over = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      if (over > 1) issues.push(`${r} overflows ${over}px`);
+      for (const i of await p.evaluate(a11ySmoke)) issues.push(`${r}: ${i}`);
+      await p.screenshot({ path: `${SHOTS}/${shot}.png`, fullPage: true });
+    }
+    check("Elite phone dark: /debrief, /learn with the plan and /upgrade fit the screen and pass the accessibility smoke", issues.length === 0, issues.slice(0, 4).join(" | "));
+    const planTop = await p.goto(`${BASE}/learn`).then(() => p.waitForTimeout(500)).then(() => p.evaluate(() => {
+      const plan = document.querySelector('[data-testid="learning-plan"]')?.getBoundingClientRect().top ?? 1e9;
+      const map = [...document.querySelectorAll("main h2")].find((h) => /Market foundations/.test(h.textContent))?.getBoundingClientRect().top ?? 0;
+      return { plan, map };
+    }));
+    check("Elite phone: the learning plan comes before the course map", planTop.plan < planTop.map, JSON.stringify(planTop));
+    await p.goto(`${BASE}/upgrade`);
+    await p.getByRole("radio", { name: "Premium" }).click();
+    const phoneR = await renewalProblems(p);
+    check("/upgrade on a phone: the plan selector shows one plan, with the renewal terms under its button", phoneR.n === 1 && phoneR.out.length === 0 && (await p.getByRole("radiogroup", { name: "Plan" }).isVisible()), JSON.stringify(phoneR));
+    await c.close();
+  }
+  {
+    // two tabs on Free can never together place more than 10 orders (store level, fired at the same moment)
+    const c = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    await c.addInitScript(() => {
+      window.__VANTAGE_TEST__ = true;
+    });
+    const a = await c.newPage();
+    const b = await c.newPage();
+    watch(a, "limit-A");
+    watch(b, "limit-B");
+    await onboardAs(a, "Tab");
+    await a.goto(`${BASE}/markets/KO`);
+    await b.goto(`${BASE}/markets/AAPL`);
+    await a.waitForFunction(() => !!window.__vantageTest?.placeOrder);
+    await b.waitForFunction(() => !!window.__vantageTest?.placeOrder);
+    const burst = (pg, sym) => pg.evaluate((s) => Promise.all(Array.from({ length: 8 }, () => window.__vantageTest.placeOrder({ symbol: s, side: "buy", type: "market", qty: 1 }))), sym);
+    const [ra, rb] = await Promise.all([burst(a, "KO"), burst(b, "AAPL")]);
+    await a.waitForTimeout(800);
+    const okN = [...ra, ...rb].filter((r) => r.ok).length;
+    const sa = await state(a), sb = await state(b);
+    const entries = (st) => st.trades.filter((t) => t.role === "entry").length;
+    check("two tabs on Free, 16 buys fired at once: exactly 10 go through and both tabs agree", okN === 10 && [...ra, ...rb].filter((r) => !r.ok).every((r) => r.code === "limit") && entries(sa) === 10 && entries(sb) === 10 && todayCount(sa, "tradeLog") === 10 && todayCount(sb, "tradeLog") === 10, `ok ${okN}, A entries ${entries(sa)}, B entries ${entries(sb)}, stamps ${todayCount(sa, "tradeLog")}/${todayCount(sb, "tradeLog")}`);
+    await a.bringToFront();
+    await a.locator('[data-paywall="trades"]').waitFor({ timeout: 5000 }).catch(() => {});
+    await b.bringToFront();
+    await b.locator('[data-paywall="trades"]').waitFor({ timeout: 5000 }).catch(() => {});
+    check("two tabs on Free: both tickets show the paywall once the shared limit is reached", (await a.locator('[data-paywall="trades"]').isVisible()) && (await b.locator('[data-paywall="trades"]').isVisible()));
+    const sells = await Promise.all([a.evaluate(() => window.__vantageTest.placeOrder({ symbol: "KO", side: "sell", type: "market", qty: 1 })), b.evaluate(() => window.__vantageTest.placeOrder({ symbol: "AAPL", side: "sell", type: "market", qty: 1 }))]);
+    check("two tabs on Free at the limit: selling from both tabs still works", sells.every((r) => r.ok), JSON.stringify(sells));
+    const coachBurst = (pg) => pg.evaluate(() => Promise.all(Array.from({ length: 7 }, () => window.__vantageTest.noteCoach())));
+    const [ca, cb] = await Promise.all([coachBurst(a), coachBurst(b)]);
+    await a.waitForTimeout(500);
+    check("two tabs on Free, 14 coach messages at once: exactly 10 are allowed", [...ca, ...cb].filter((r) => r.ok).length === 10 && todayCount(await state(a), "coachLog") === 10 && todayCount(await state(b), "coachLog") === 10);
+    await c.close();
+  }
+  {
+    // two tabs on Free, real clicks on both tickets at the same moment: the combined count still stops at 10
+    const c = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const a = await c.newPage();
+    const b = await c.newPage();
+    watch(a, "limit-ui-A");
+    watch(b, "limit-ui-B");
+    await onboardAs(a, "Two");
+    await a.goto(`${BASE}/markets/KO`);
+    await b.goto(`${BASE}/markets/AAPL`);
+    await a.locator("#qty").waitFor();
+    await b.locator("#qty").waitFor();
+    const clickBuy = async (pg, sym, q) => {
+      await pg.locator("#qty").fill(q).catch(() => {});
+      return pg.getByRole("button", { name: new RegExp(`^Buy ${q} ${sym}$`) }).click({ timeout: 1500 }).then(() => true).catch(() => false);
+    };
+    for (let i = 0; i < 7; i++) {
+      const q = i % 2 ? "1" : "2";
+      await Promise.all([clickBuy(a, "KO", q), clickBuy(b, "AAPL", q)]);
+      await a.waitForTimeout(700);
+    }
+    await a.waitForTimeout(800);
+    const sa = await state(a), sb = await state(b);
+    const entries = (st) => st.trades.filter((t) => t.role === "entry").length;
+    check("two tabs on Free, 14 simultaneous Buy clicks: exactly 10 orders are placed", entries(sa) === 10 && entries(sb) === 10 && todayCount(sa, "tradeLog") === 10, `A ${entries(sa)}, B ${entries(sb)}, stamps ${todayCount(sa, "tradeLog")}`);
+    await c.close();
+  }
+  {
+    // /pricing: public, three plans, renewal terms under every button, test mode, Terms link (desktop light, then phone dark)
+    const c = await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: "light", reducedMotion: "reduce" });
+    const p = await c.newPage();
+    watch(p, "pricing");
+    const res = await p.goto(`${BASE}/pricing`);
+    await p.getByTestId("plan-ledger").waitFor();
+    const heads = await p.locator("thead th").allInnerTexts();
+    check("/pricing is public (200, no consent gate) and shows three plans at $0, $30 and $60 a month", res?.status() === 200 && (await p.getByRole("dialog").count()) === 0 && heads.length === 3 && /^Free/.test(heads[0]) && /^Premium/.test(heads[1]) && /^Elite/.test(heads[2]) && heads[0].includes("$0") && heads[1].includes("$30") && heads[2].includes("$60") && heads.every((h) => h.includes("a month")), heads.map((h) => h.split("\n")[0]).join(","));
+    check("/pricing: Premium carries the Most popular tag, and only Premium", heads[1].includes("Most popular") && !heads[0].includes("Most popular") && !heads[2].includes("Most popular"));
+    const pr = await renewalProblems(p);
+    check("/pricing: the renewal terms sit under every button that starts a plan", pr.n === 2 && pr.out.length === 0, JSON.stringify(pr));
+    check("/pricing: test mode is labelled and the Terms' paid-plans section is linked", (await p.getByTestId("test-mode-note").innerText()).includes("Payments aren't live yet") && (await p.locator('main a[href="/terms#paid-plans"]').count()) >= 1);
+    check("/pricing: the comparison lists only features that exist (ink ticks, dashes read as Not included)", (await p.locator("tbody th[scope=row]").count()) >= 12 && (await p.getByText("Not included").count()) > 0 && (await p.locator("tbody svg path[stroke='var(--pencil)']").count()) === 0);
+    planCopy.push(await p.locator("main").innerText());
+    await p.screenshot({ path: `${SHOTS}/t10-pricing-desktop-light.png`, fullPage: true });
+    await p.getByRole("button", { name: "Preview Elite" }).click();
+    await p.getByTestId("test-mode-dialog").waitFor();
+    planCopy.push(await p.getByTestId("test-mode-dialog").innerText());
+    check("/pricing: Preview opens the same test-mode dialog", (await p.getByTestId("test-mode-dialog").innerText()).includes(TEST_MODE));
+    await p.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+    await c.close();
+    const c2 = await browser.newContext({ ...devices["iPhone 14"], colorScheme: "dark", reducedMotion: "reduce" });
+    const p2 = await c2.newPage();
+    watch(p2, "pricing-phone");
+    await p2.goto(`${BASE}/pricing`);
+    await p2.getByRole("radiogroup", { name: "Plan" }).waitFor();
+    const per = [];
+    for (const name of ["Free", "Premium", "Elite"]) {
+      await p2.getByRole("radio", { name }).click();
+      const r = await renewalProblems(p2);
+      per.push(`${name}:${r.n}/${r.out.length}`);
+      if (r.out.length) per.push("BAD");
+    }
+    const over = await p2.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    check("/pricing on a phone: one plan at a time, renewal terms under its button, no sideways scrolling", !per.includes("BAD") && per.join() === "Free:0/0,Premium:1/0,Elite:1/0" && over <= 1, `${per.join()} overflow ${over}`);
+    await p2.getByRole("radio", { name: "Premium" }).click();
+    await p2.screenshot({ path: `${SHOTS}/t10-pricing-phone-dark.png`, fullPage: true });
+    await c2.close();
+  }
+  {
+    // honest copy: no confirmshaming, urgency, countdowns or wording that makes a preview look like a charge
+    const SHAME = /no thanks|i don.t want|i.d rather (not|stay)|miss(ing)? out|don.t miss|last chance|limited time|only today|today only|\bhurry\b|act now|buy now|upgrade now|before it.s gone|you.ll lose|you will lose|don.t lose|are you sure|offer ends|expires? (in|soon|tonight)|countdown|only \d+ (left|spots)|spots left|people (are )?(viewing|upgrading)|ends (in|tonight|soon)|\bregret\b|serious traders|real traders|smart traders|\blosers?\b|\bstay behind\b|just \$\d+/i;
+    const CHARGE = /\byou (were|have been|will be) charged\b|payment (successful|received|complete)|\breceipt\b|card number|\bsubscribed\b|thank you for your (purchase|payment)|purchase complete|order total/i;
+    const all = planCopy.join("\n");
+    const shame = planCopy.map((t) => t.match(SHAME)?.[0]).filter(Boolean);
+    const charge = planCopy.map((t) => t.match(CHARGE)?.[0]).filter(Boolean);
+    check(`no paywall or pricing copy matches a confirmshaming or fake-urgency phrase (${planCopy.length} texts)`, planCopy.length >= 15 && shame.length === 0, shame.join(", "));
+    check("previewing never reads like a real charge (no receipt, card or payment-success wording)", charge.length === 0 && /no charge|nothing is charged|Nothing was charged/i.test(all), charge.join(", "));
+    check("no countdown or timer element on any plan surface", !/\d{1,2}:\d{2}:\d{2}|\bhours? left\b|\bminutes? left\b/i.test(all));
+  }
+  {
+    // legal: the Terms describe what is live, the Privacy Policy the referral code, under a new version
+    const c = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const p = await c.newPage();
+    watch(p, "legal-t10");
+    await p.goto(`${BASE}/terms`);
+    const terms = await p.locator("#paid-plans").locator("..").innerText();
+    check("Terms section 15 describes the live plans: test mode at no charge, one-click cancel in Settings, when it takes effect, the Free limits", /Payments are not live yet/.test(terms) && /test mode/.test(terms) && /no card is asked for or charged/.test(terms) && /one click/.test(terms) && /returns you to the Free plan at once/.test(terms) && /Selling to close or reduce a position is always allowed/.test(terms) && /midnight/.test(terms) && terms.includes("[refund policy]") && !/when paid plans are offered/i.test(terms));
+    check(`the legal pages carry the new version (${TERMS_VERSION})`, (await p.getByText(new RegExp(`Version ${TERMS_VERSION}`)).first().isVisible()));
+    await p.goto(`${BASE}/privacy`);
+    const priv = await p.locator("main").innerText();
+    check("Privacy: the referral code from an invite link is stored in the browser and identifies no one; the plan and daily counts are listed too", /referral code in that link is stored in your browser/.test(priv) && /identifies no one/.test(priv) && /your plan \(Free, or the plan you are previewing in test mode\)/.test(priv));
     await c.close();
   }
 

@@ -130,3 +130,12 @@ export function NovaNote({ children, className, byline }: { children: React.Reac
 export function Tag({ children, kind = "plain", className }: { children: React.ReactNode; kind?: "plain" | "nova" | "plan" | "fill"; className?: string }) {
   return <span className={cn("tag", kind === "nova" && "tag-nova", kind === "plan" && "tag-plan", kind === "fill" && "tag-fill", className)}>{children}</span>;
 }
+
+/** An ink tick with no box: a system fact (the pricing ledger's "included"), not one of Nova's pencil marks. */
+export function InkTick({ size = 18, className }: { size?: number; className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} className={cn("shrink-0 overflow-visible", className)} aria-hidden>
+      <path d={TICK_D} fill="none" stroke="var(--ink)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
